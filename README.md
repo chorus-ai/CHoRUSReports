@@ -1,4 +1,4 @@
-# chorus-report-generator
+# CHoRUSReports
 
 This repo contains an R package to produce characterization reports to return to sites following their data submissions
 
