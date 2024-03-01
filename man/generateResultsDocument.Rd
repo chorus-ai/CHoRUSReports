@@ -21,7 +21,7 @@ generateResultsDocument(
 
 \item{outputFolder}{Folder to store the results}
 
-\item{docTemplate}{Name of the document template (EHDEN)}
+\item{docTemplate}{Name of the document template (CHoRUS)}
 
 \item{authors}{List of author names to be added in the document}
 
