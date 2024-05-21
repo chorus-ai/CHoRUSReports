@@ -28,6 +28,9 @@
 #' @param sqlOnly                          Boolean to determine if Achilles should be fully executed. TRUE = just generate SQL files, don't actually run, FALSE = run Achilles
 #' @param outputFolder                     Path to store logs and SQL files
 #' @param verboseMode                      Boolean to determine if the console will show all execution steps. Default = TRUE
+#' @param accountUrl                       Web location of Azure storage account
+#' @param accountKey                       SAS key for the Azure storage account
+#' @param accountName                      Name of the blob container in question
 #' @return                                 An object of type \code{achillesResults} containing details for connecting to the database containing the results
 #' @export
 CHoRUSReports <- function (connectionDetails,
@@ -43,7 +46,10 @@ CHoRUSReports <- function (connectionDetails,
                              runDataTablesChecks = TRUE,
                              sqlOnly = FALSE,
                              outputFolder = "output",
-                             verboseMode = TRUE) {
+                             verboseMode = TRUE,
+                             accountUrl = "",
+                             accountKey = "",
+                             accountName = "") {
 
 
   # Log execution -----------------------------------------------------------------------------------------------------------------
@@ -96,6 +102,8 @@ CHoRUSReports <- function (connectionDetails,
   ParallelLogger::logInfo(paste0("Report generation for database ",databaseName, " started (cdm_version=",cdmVersion,")"))
 
   # run all the checks ------------------------------------------------------------------------------------------------------------
+
+
   dataTablesResults <- NULL
   cdmSource<-NULL
 

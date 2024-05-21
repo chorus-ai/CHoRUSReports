@@ -5,3 +5,5 @@
 #' @import DatabaseConnector
 #' @import ParallelLogger
 #' @import SqlRender
+#' @import hash
+#' @import AzureStor

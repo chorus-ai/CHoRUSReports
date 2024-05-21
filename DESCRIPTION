@@ -33,4 +33,7 @@ Imports: parallel,
     ggplot2,
     knitr,
     devtools,
-    rsvg
+    rsvg,
+    hash,
+    janitor,
+    AzureStor

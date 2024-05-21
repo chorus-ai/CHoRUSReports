@@ -154,3 +154,22 @@ bundleResults <- function(outputFolder, databaseId) {
   DatabaseConnector::createZipFile(zipFile = zipName, files = files)
   return(zipName)
 }
+
+#' Retrieves list of files and metadata from Azure storage containr
+#'
+#' @description
+#' \code{bundleResults} Retrieves list of files and metadata from Azure storage containr
+#' @param container_url  Web location of the storage container
+#' @param sas    sas access token of the containr
+#' @export
+get_blob_files <- function(container_url, sas, container_name) {
+
+  blob_endpoint <- paste0("https://", container_url, "/")
+  fl_endp_sas <- AzureStor::storage_endpoint(blob_endpoint, sas=sas)
+  blob_container <- AzureStor::storage_container(fl_endp_sas, container_name)
+
+  file_list <- AzureStor::list_storage_files(blob_container, recursive=TRUE, info="all")
+
+  return(file_list)
+}
+
