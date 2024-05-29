@@ -27,100 +27,287 @@ generateResultsDocument<- function(results, outputFolder, docTemplate="CHoRUS", 
     docTemplate <- system.file("templates", "Template-CHoRUS.docx", package="CHoRUSReports")
     logo <- system.file("templates", "pics", "CHoRUS-Multicolor.svg", package="CHoRUSReports")
   }
+  outputFolder <- paste(outputFolder, Sys.Date(), sep="/")
+  dir.create(outputFolder, showWarnings = FALSE, recursive = TRUE)
 
   ## open a new doc from the doctemplate
   doc<-officer::read_docx(path = docTemplate)
   ## add Title Page
   doc<- doc %>%
-    officer::body_add_par(value = paste0("CHoRUS report for the ",databaseName," data generating site"), style = "Title") %>%
+    officer::body_add_par(value = paste0("CHoRUS report for the ",toupper(databaseName)," data generating site"), style = "Title") %>%
     officer::body_add_par(value = paste0("Package Version: ", packageVersion("CHoRUSReports")), style = "Centered") %>%
     officer::body_add_par(value = paste0("Date: ", date()), style = "Centered") %>%
     officer::body_add_par(value = paste0("Authors: ", authors), style = "Centered") %>%
     officer::body_add_break()
 
-  ## add Table of content
+  ## add Table of contents
   doc<-doc %>%
     officer::body_add_par(value = "Table of contents", style = "heading 1") %>%
     officer::body_add_toc(level = 2) %>%
     officer::body_add_break()
 
 
-    ## add Concept counts
-  if (!is.null(results$dataTablesResults)) {
-    df_t1 <- results$dataTablesResults$dataTablesCounts$result
-    doc<-doc %>%
-      officer::body_add_par(value = "OMOP Table Counts", style = "heading 2") %>%
-      officer::body_add_par("Counts across the clinical tables") %>%
-      my_body_add_table(value = df_t1[order(df_t1$COUNT, decreasing=TRUE),], style = "CHoRUS") %>%
-      officer::body_add_par(" ") %>%
-      officer::body_add_break()
+  ## SECTION 1 Table: Metadata
+  metric <- c("Delivery Timestamp",
+             "Packet Size (GB)",
+             "Number of Prior Deliveries",
+             "Feedback from Most Recent Delivery"
+  )
+  value <- c(glue::glue("{results$section1$Metadata$deliveryTime}"),
+               glue::glue("{prettyNum(results$section1$Metadata$packetSize)}"),
+               glue::glue("{results$section1$Metadata$numOfPriorDeliveries}"),
+               glue::glue("{results$section1$Metadata$recentFeedback}")
+               )
+  metadataTable <- data.frame(metric,value)
+  ft1 <- flextable::qflextable(metadataTable)
+  ft1 <-flextable::set_table_properties(ft1, width = 1, layout = "fixed")
+  ft1 <- flextable::bold(ft1, bold = TRUE, part = "header")
+  border_v = officer::fp_border(color="gray")
+  border_h = officer::fp_border(color="gray")
+  ft1<-flextable::border_inner_v(ft1, part="all", border = border_v )
+  ft1 <- flextable::fontsize(ft1, size = 9, part = "body")
+  ft1 <- flextable::fontsize(ft1, size = 10, part = "header")
+  
+  ## SECTION 1 Table: High-Level Quantities
+  metric <- c("# Files Delivered",
+             "DQD Percentage",
+             "DQD Failed Checks",
+             "PHI Issues - OMOP",
+             "PHI Issues - Waveform",
+             "PHI Issues - Images",
+             "PHI Issues - Notes",
+             "CHoRUS Quality Checks",
+             "CHoRUS Characterization"
+  )
+  
+  value <- c(results$section1$Overview$filesDelivered,
+               results$section1$Overview$qualityChecks,
+               results$section1$Overview$dqdFailures,
+               results$section1$Overview$phiIssuesOMOP,
+               results$section1$Overview$phiIssuesWAVE,
+               results$section1$Overview$phiIssuesIMAG,
+               results$section1$Overview$phiIssuesNOTE,
+               results$section1$Overview$chorusQC,
+               results$section1$Overview$chorusChars)
+  
+  hloTable <- data.frame(metric,value)
+  ft2 <- flextable::qflextable(hloTable)
+  ft2 <-flextable::set_table_properties(ft2, width = 1, layout = "fixed")
+  ft2 <- flextable::bold(ft2, bold = TRUE, part = "header")
+  border_v = officer::fp_border(color="gray")
+  border_h = officer::fp_border(color="gray")
+  ft2<-flextable::border_inner_v(ft2, part="all", border = border_v )
+  ft2 <- flextable::fontsize(ft2, size = 9, part = "body")
+  ft2 <- flextable::fontsize(ft2, size = 10, part = "header")
+  ft2 <- flextable::footnote(ft2,
+                            i = 5:7, j = 1,
+                            value = flextable::as_paragraph(
+                              c(
+                                "PHI tools have not been distributed for this modality"
+                              )
+                            ),
+                            ref_symbols = c("a")
+  )
+  ft2 <- flextable::footnote(ft2,
+                             i = 8:9, j = 1,
+                             value = flextable::as_paragraph(
+                               c(
+                                 "CHoRUS-Specific Characterization is Under Development"
+                               )
+                             ),
+                             ref_symbols = c("b")
+  )
+  ft2 <- flextable::fontsize(ft2, size = 7, part = "footer")
+  
+  ## SECTION 1 Table: Patient Targets
+  category <- c("ALL Data Modes",
+             "ANY Data Modes",
+             "OMOP Data",
+             "Imaging Data",
+             "Waveform Data",
+             "Note Data",
+             "Approved",
+             "Approved & Deidentified"
+  )
+  persCnt <- c(results$section1$PatientCounts$allDataPersons,
+                    results$section1$PatientCounts$anyDataPersons,
+                    results$section1$PatientCounts$omopDataPersons,
+                    results$section1$PatientCounts$imageDataPersons,
+                    results$section1$PatientCounts$waveDataPersons,
+                    results$section1$PatientCounts$noteDataPersons,
+                    results$section1$PatientCounts$allDataApprovedPersons,
+                    results$section1$PatientCounts$allDataApprovedDeidPersons)
+  
+  fileCnt   <-  c(results$section1$PatientCounts$allDataFiles,
+                  results$section1$PatientCounts$anyDataFiles,
+                  results$section1$PatientCounts$omopDataFiles,
+                  results$section1$PatientCounts$imageDataFiles,
+                  results$section1$PatientCounts$waveDataFiles,
+                  results$section1$PatientCounts$noteDataFiles,
+                  results$section1$PatientCounts$allDataApprovedFiles,
+                  results$section1$PatientCounts$allDataApprovedDeidFiles)
+  
+  targPct    <- c(results$section1$PatientCounts$allDataPersonsPct,
+                        results$section1$PatientCounts$anyDataPersonsPct,
+                        results$section1$PatientCounts$omopDataPersonsPct,
+                        results$section1$PatientCounts$imageDataPersonsPct,
+                        results$section1$PatientCounts$waveDataPersonsPct,
+                        results$section1$PatientCounts$noteDataPersonsPct,
+                        results$section1$PatientCounts$allDataApprovedPersonsPct,
+                        results$section1$PatientCounts$allDataApprovedDeidPersonsPct)
+  
+  persDelta    <- c(results$section1$PatientCounts$allDataPersonsDelta,
+                      results$section1$PatientCounts$anyDataPersonsDelta,
+                      results$section1$PatientCounts$omopDataPersonsDelta,
+                      results$section1$PatientCounts$imageDataPersonsDelta,
+                      results$section1$PatientCounts$waveDataPersonsDelta,
+                      results$section1$PatientCounts$noteDataPersonsDelta,
+                      results$section1$PatientCounts$allDataApprovedPersonsDelta,
+                      results$section1$PatientCounts$allDataApprovedDeidPersonsDelta)
+  
+  pcTable <- data.frame(category,fileCnt)
+  pcTable["persCnt"] <- persCnt
+  pcTable["persDelta"] <- persDelta
+  pcTable["targPct"] <- targPct
+  
+  ft3 <- flextable::qflextable(pcTable)
+  ft3 <-flextable::set_table_properties(ft3, width = 1, layout = "fixed")
+  ft3 <- flextable::bold(ft3, bold = TRUE, part = "header")
+  border_v = officer::fp_border(color="gray")
+  border_h = officer::fp_border(color="gray")
+  ft3<-flextable::border_inner_v(ft3, part="all", border = border_v )
+  ft3 <- flextable::fontsize(ft3, size = 9, part = "body")
+  ft3 <- flextable::fontsize(ft3, size = 10, part = "header")
+  ft3 <- flextable::footnote(ft3,
+                             i = 6:8, j = 1,
+                             value = flextable::as_paragraph(
+                               c(
+                                 "Notes have not yet been ingested due to PHI concerns with data deliveries from several sites",
+                                 "The approval process has not yet been defined",
+                                 "The deidentification process has not yet been defined"
+                               )
+                             ),
+                             ref_symbols = c("a", "b", "c")
+  )
+  ft3 <- flextable::fontsize(ft3, size = 7, part = "footer")
+  
+  options(warn=-1)
+  if (nrow(results$section2$phiOverview$omop) == 20){
+    results$section2$phiOverview$omop[nrow(results$section2$phiOverview$omop) + 1,] = c("TRUNCATED", "TRUNCATED", "TRUNCATED", "TRUNCATED")
   }
-
-  vocabResults <-results$vocabularyResults
-
-  drug_rows <- nrow(vocabResults$mappedDrugs$result)
-  condition_rows <- nrow(vocabResults$mappedConditions$result)
-  meas_rows <- nrow(vocabResults$mappedMeasurements$result)
-  obs_rows <- nrow(vocabResults$mappedObservations$result)
-  proc_rows <- nrow(vocabResults$mappedProcedures$result)
-  device_rows <- nrow(vocabResults$mappedDevices$result)
-  detail_rows <- nrow(vocabResults$mappedVisitDetails$result)
-  visit_rows <- nrow(vocabResults$mappedVisits$result)
-
-  drug_counts <- sum(vocabResults$mappedDrugs$result$`#RECORDS`)
-  condition_counts <- sum(vocabResults$mappedConditions$result$`#RECORDS`)
-  meas_counts <- sum(vocabResults$mappedMeasurements$result$`#RECORDS`)
-  obs_counts <- sum(vocabResults$mappedObservations$result$`#RECORDS`)
-  proc_counts<- sum(vocabResults$mappedProcedures$result$`#RECORDS`)
-  device_counts <- sum(vocabResults$mappedDevices$result$`#RECORDS`)
-  detail_counts <- sum(vocabResults$mappedVisitDetails$result$`#RECORDS`)
-  visit_counts <- sum(vocabResults$mappedVisits$result$`#RECORDS`)
-
-  ## Print counts per domain
+  ft4 <- flextable::qflextable(results$section2$phiOverview$omop)
+  options(warn=0)
+  ft4 <- flextable::set_table_properties(ft4, width = 1, layout = "autofit")
+  ft4 <- flextable::theme_zebra(ft4)
+  ft4 <- flextable::fontsize(ft4, size = 8)
+  ft4 <- flextable::fontsize(ft4, size = 8, part = "header")
+  ft4 <- flextable::footnote(ft4,
+                             i = 1, j = 3,
+                             value = flextable::as_paragraph(
+                               c(
+                                 "Note that the PHI tool has not yet been trained on OMOP-shaped data"
+                               )
+                             ),
+                             ref_symbols = c("a"),
+                             part = "header"
+  )
+  ft4 <- flextable::fontsize(ft4, size = 7, part = "footer")
+  
+  ft5 <- flextable::qflextable(results$section3$DQDResults$qualityPerCheck)
+  ft5 <- flextable::set_table_properties(ft5, width = 1, layout = "autofit")
+  ft5 <- flextable::theme_zebra(ft5)
+  ft5 <- flextable::fontsize(ft5, size = 8)
+  ft5 <- flextable::fontsize(ft5, size = 8, part = "header")
+  
+  ft6 <- flextable::qflextable(results$section4$CohortCounts$topInNetwork)
+  ft6 <- flextable::set_table_properties(ft6, width = 1, layout = "autofit")
+  ft6 <- flextable::theme_zebra(ft6)
+  ft6 <- flextable::fontsize(ft6, size = 8)
+  ft6 <- flextable::fontsize(ft6, size = 8, part = "header")
+  
+  ft7 <- flextable::qflextable(results$section4$CohortCounts$topInSource)
+  ft7 <- flextable::set_table_properties(ft7, width = 1, layout = "autofit")
+  ft7 <- flextable::theme_zebra(ft7)
+  ft7 <- flextable::fontsize(ft7, size = 8)
+  ft7 <- flextable::fontsize(ft7, size = 8, part = "header")
+  
+  
+  
   doc<-doc %>%
-    officer::body_add_par(value = "Medical Events Captured", style = "heading 1") %>%
-    officer::body_add_par(value = "The tables in the section below show concepts captured by the clinical tables") %>%
-    officer::body_add_par(value = "Drugs", style = "heading 2") %>%
-    officer::body_add_par(paste0("There were a total of ", drug_counts, " Drug Exposures submitted"))
-  doc <- doc %>%
-    my_table_check(x = doc, data = vocabResults$mappedDrugs, data_all = vocabResults, table_count = drug_rows) %>%
+    officer::body_add_par(value = "General Delivery Information", style = "heading 1") %>%
+    
+    officer::body_add_par(value = "The goal of the feedback report is to provide insight into the completeness, transparency and quality of the data transformation processes and the readiness of the data site to participate in CHoRUS research studies.") %>%
+    
+    officer::body_add_par(value = "Metadata", style = "heading 2") %>%
+    
+    flextable::body_add_flextable(value = ft1, align = "left") %>%
+    
     officer::body_add_break() %>%
-    officer::body_add_par(value = "Conditions", style = "heading 2") %>%
-    officer::body_add_par(paste0("There were a total of ", condition_counts, " Conditions submitted"))
-  doc <- doc %>%
-    my_table_check(x = doc, data = vocabResults$mappedConditions, data_all = vocabResults, table_count = condition_rows) %>%
+    
+    officer::body_add_par(value = "High-Level Characterization", style = "heading 2") %>%
+    
+    officer::body_add_par(value = "The table below includes output counts from various PHI and quality checks executed against the data delivery during the ingestion process") %>%
+    
+    flextable::body_add_flextable(value = ft2, align = "left") %>%
+    
     officer::body_add_break() %>%
-    officer::body_add_par(value = "Measurements", style = "heading 2") %>%
-    officer::body_add_par(paste0("There were a total of ", meas_counts, " Measurements submitted"))
-  doc <- doc %>%
-    my_table_check(x = doc, data = vocabResults$mappedMeasurements, data_all = vocabResults, table_count = meas_rows) %>%
-    officer::body_add_break() %>%
-    officer::body_add_par(value = "Observations", style = "heading 2") %>%
-    officer::body_add_par(paste0("There were a total of ", obs_counts, " Observations submitted"))
-  doc <- doc %>%
-    my_table_check(x = doc, data = vocabResults$mappedObservations, data_all = vocabResults, table_count = obs_rows) %>%
-    officer::body_add_break() %>%
-    officer::body_add_par(value = "Procedures", style = "heading 2") %>%
-    officer::body_add_par(paste0("There were a total of ", proc_counts, " Procedures submitted"))
-  doc <- doc %>%
-    my_table_check(x = doc, data = vocabResults$mappedProcedures, data_all = vocabResults, table_count = proc_rows) %>%
-    officer::body_add_break() %>%
-    officer::body_add_par(value = "Devices", style = "heading 2") %>%
-    officer::body_add_par(paste0("There were a total of ", device_counts, " Devices submitted"))
-  doc <- doc %>%
-    my_table_check(x = doc, data = vocabResults$mappedDevices, data_all = vocabResults, table_count = device_rows) %>%
-    officer::body_add_break() %>%
-    officer::body_add_par(value = "Visit Details", style = "heading 2") %>%
-    officer::body_add_par(paste0("There were a total of ", detail_counts, " Visit Details submitted"))
-  doc <- doc %>%
-    my_table_check(x = doc, data = vocabResults$mappedVisitDetails, data_all = vocabResults, table_count = detail_rows) %>%
-    officer::body_add_break() %>%
-    officer::body_add_par(value = "Visits", style = "heading 2") %>%
-    officer::body_add_par(paste0("There were a total of ", visit_counts, " Visits submitted"))
-  doc <- doc %>%
-    my_table_check(x = doc, data = vocabResults$mappedVisits, data_all = vocabResults, table_count = visit_rows)
+    
+    officer::body_add_par(value = "Delivery Targets", style = "heading 2") %>%
+    
+    flextable::body_add_flextable(value = ft3, align = "left") %>%
+  
+    officer::body_add_break()
 
-  ## save the doc as a word file
-  writeLines(paste0("Saving doc to ",outputFolder,"/",results$databaseId,"-Report.docx"))
-  print(doc, target = paste(outputFolder,"/",results$databaseId,"-Report.docx",sep = ""))
+  doc<-doc %>%
+    officer::body_add_par(value = "PHI Checks", style = "heading 1") %>%
+    
+    officer::body_add_par(value = "This section of the report details various checks that were executed against the data delivery. If you'd like to learn more about these checks, please see the [Privacy SOP] documentation") %>%
+    
+    officer::body_add_par(value = "OMOP-Based PHI Checks", style = "heading 2") %>%
+    
+    officer::body_add_par(value = "The table below shows checks, executed by the privacy_check_tool, that were deemed to have failed (pred_result = 1) based on the trained model.") %>%
+    
+    flextable::body_add_flextable(value = ft4, align = "left") %>%
+    
+    officer::body_add_break()
+  
+  doc<-doc %>%
+    officer::body_add_par(value = "DQD Checks", style = "heading 1") %>%
+    
+    officer::body_add_par(value = "This section of the report provides a summary of failed checks identified by the data quality dashboard. For more detailed information, please refer to the complete csv-based DQD output in this report packet. ") %>%
+    
+    officer::body_add_par(value = "Standard DQD Check Failures", style = "heading 2") %>%
+
+    flextable::body_add_flextable(value = ft5, align = "left") %>%
+  
+    officer::body_add_break()
+  
+  doc<-doc %>%
+    officer::body_add_par(value = "Cohort Characterization", style = "heading 1") %>%
+    
+    officer::body_add_par(value = "This section of the report provides information about how many patients in a site's data set can be captured by cohort definitions from the OHDSI PhenotypeLibrary. ") %>%
+    
+    officer::body_add_par(value = "Most populous cohorts in the MERGE dataset", style = "heading 2") %>%
+    
+    flextable::body_add_flextable(value = ft6, align = "left") %>%
+    
+    officer::body_add_break() %>%
+  
+    officer::body_add_par(value = glue::glue("Most populous cohorts in {databaseName} dataset"), style = "heading 2") %>%
+    
+    flextable::body_add_flextable(value = ft7, align = "left")
+  
+
+  ## save the doc as a word file and convert to pdf with libreoffice
+  wordFile <- paste0(databaseName,"-Report-", Sys.Date(), ".docx")
+  wordPath <- paste0(outputFolder,"/",wordFile)
+  pdfFile <- paste0(databaseName,"-Report-", Sys.Date(), ".pdf")
+  pdfPath <- paste0(outputFolder,"/",pdfFile)
+  writeLines(paste0("Saving document to ",wordFile," and ", pdfFile))
+  print(doc, target = paste(outputFolder,"/",wordFile,sep = ""))
+  Sys.unsetenv("LD_LIBRARY_PATH") # Fix for strange rstudio behavior -> https://github.com/rstudio/rstudio/issues/8539#issuecomment-1239094139
+  cmd_ <- sprintf('export HOME=/tmp && /usr/lib/libreoffice/program/soffice.bin --headless --convert-to soffice --convert-to pdf:draw_pdf_Export:{"SelectPdfVersion":{"type":"long","value":"17"}} %s --outdir %s', wordPath, outputFolder)
+  system(cmd_, ignore.stdout = TRUE)
+  saveRDS(results, file = paste0(outputFolder, "/", databaseName, "-results.rds"))
+  write.csv(results$section3$DQDResults$allResults, file = paste0(outputFolder, "/", databaseName, "-dqd-results.csv") )
 }

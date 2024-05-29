@@ -125,9 +125,9 @@ my_source_value_count_section <- function (x, data, table_number, domain, kind) 
 
 my_table_check <- function(x, data, data_all, table_count, ...) {
   if (table_count == 0) {
-    my_body_add_table(x, value = data_all$mappedNothing$result, style = "CHoRUS")
+    my_body_add_table(x, value = data_all$mappedNothing$result, style = "List Table 4")
   } else {
-    my_body_add_table(x, value = data$result, style = "CHoRUS")
+    my_body_add_table(x, value = data$result, style = "List Table 4")
   }
 }
 
