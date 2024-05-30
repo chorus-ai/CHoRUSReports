@@ -10,7 +10,7 @@
 #' @description
 #' \code{generateResultsDocument} creates a word document with results based on a template
 #' @param results             Results object from \code{CHoRUSReports}
-#'
+#' @param connectionDetails   An R object of type \code{connectionDetails} created using the function \code{createConnectionDetails} in the \code{DatabaseConnector} package.
 #' @param outputFolder        Folder to store the results
 #' @param docTemplate         Name of the document template (CHoRUS)
 #' @param authors             List of author names to be added in the document
@@ -21,7 +21,7 @@
 #' @param silent              Flag to not create output in the terminal (default = FALSE)
 
 #' @export
-generateResultsDocument<- function(results, outputFolder, docTemplate="CHoRUS", authors = "Author Names", databaseDescription, databaseName, databaseId,smallCellCount,silent=FALSE) {
+generateResultsDocument<- function(results, connectionDetails, outputFolder, docTemplate="CHoRUS", authors = "Author Names", databaseDescription, databaseName, databaseId,smallCellCount,silent=FALSE) {
 
   if (docTemplate=="CHoRUS"){
     docTemplate <- system.file("templates", "Template-CHoRUS.docx", package="CHoRUSReports")
@@ -29,6 +29,7 @@ generateResultsDocument<- function(results, outputFolder, docTemplate="CHoRUS", 
   }
   outputFolder <- paste(outputFolder, Sys.Date(), sep="/")
   dir.create(outputFolder, showWarnings = FALSE, recursive = TRUE)
+  conn <- connect(connectionDetails)
 
   ## open a new doc from the doctemplate
   doc<-officer::read_docx(path = docTemplate)
@@ -53,12 +54,19 @@ generateResultsDocument<- function(results, outputFolder, docTemplate="CHoRUS", 
              "Number of Prior Deliveries",
              "Feedback from Most Recent Delivery"
   )
+  metricShort <- c("delivered_at",
+                   "packet_size",
+                   "num_prior_delivs",
+                   "prior_feedback"
+  )
   value <- c(glue::glue("{results$section1$Metadata$deliveryTime}"),
                glue::glue("{prettyNum(results$section1$Metadata$packetSize)}"),
                glue::glue("{results$section1$Metadata$numOfPriorDeliveries}"),
                glue::glue("{results$section1$Metadata$recentFeedback}")
                )
   metadataTable <- data.frame(metric,value)
+  metadataInsert <- setNames(data.frame(matrix(ncol = 4, nrow = 0)), metricShort)
+  metadataInsert[1,] <- value
   ft1 <- flextable::qflextable(metadataTable)
   ft1 <-flextable::set_table_properties(ft1, width = 1, layout = "fixed")
   ft1 <- flextable::bold(ft1, bold = TRUE, part = "header")
@@ -298,16 +306,40 @@ generateResultsDocument<- function(results, outputFolder, docTemplate="CHoRUS", 
     flextable::body_add_flextable(value = ft7, align = "left")
   
 
-  ## save the doc as a word file and convert to pdf with libreoffice
+  ## store output of report creation process
   wordFile <- paste0(databaseName,"-Report-", Sys.Date(), ".docx")
   wordPath <- paste0(outputFolder,"/",wordFile)
+  
   pdfFile <- paste0(databaseName,"-Report-", Sys.Date(), ".pdf")
   pdfPath <- paste0(outputFolder,"/",pdfFile)
+  
   writeLines(paste0("Saving document to ",wordFile," and ", pdfFile))
   print(doc, target = paste(outputFolder,"/",wordFile,sep = ""))
+  
   Sys.unsetenv("LD_LIBRARY_PATH") # Fix for strange rstudio behavior -> https://github.com/rstudio/rstudio/issues/8539#issuecomment-1239094139
   cmd_ <- sprintf('export HOME=/tmp && /usr/lib/libreoffice/program/soffice.bin --headless --convert-to soffice --convert-to pdf:draw_pdf_Export:{"SelectPdfVersion":{"type":"long","value":"17"}} %s --outdir %s', wordPath, outputFolder)
   system(cmd_, ignore.stdout = TRUE)
-  saveRDS(results, file = paste0(outputFolder, "/", databaseName, "-results.rds"))
+  
+  rdsFile <- paste0(outputFolder, "/", databaseName, "-results.rds")
+  saveRDS(results, file = rdsFile)
   write.csv(results$section3$DQDResults$allResults, file = paste0(outputFolder, "/", databaseName, "-dqd-results.csv") )
+  
+  # Upload results object to postgres instance and get oid
+  pgHost <- strsplit(connectionDetails$server(), "/")[[1]][1]
+  sendLO <- glue::glue("export PGPASSWORD=\"{connectionDetails$password()}\" && psql -h {pgHost} -U postgres -At -c \"\\lo_import '{rdsFile}'\" | tail -1 | cut -d \" \" -f 2")
+  myoid <- system(sendLO, intern=TRUE)
+  
+  dbWriteTable(conn, "public.release_tmp", metadataInsert, overwrite = TRUE)
+  sqlInsertCheck <- glue::glue("
+  INSERT INTO public.allreleases
+  SELECT delivered_at::timestamp,
+         packet_size::text,
+         num_prior_delivs::integer,
+         prior_feedback::text,
+         {myoid}
+  FROM public.release_tmp ON CONFLICT DO NOTHING;
+  DROP TABLE public.release_tmp;
+  ")
+  executeSql(conn, sqlInsertCheck, progressBar = FALSE, reportOverallTime = FALSE)
+  disconnect(conn)
 }

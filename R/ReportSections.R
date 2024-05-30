@@ -84,7 +84,7 @@ createReportSections <- function  (connectionDetails,
   
   metadata[['deliveryTime']] <- max(allFiles$last_modified) # get delivery time
   metadata[['packetSize']] <- querySql(conn,"select sum(size)/1000000000 FROM public.allfiles;")[[1]] # get delivery packet size in gb
-  metadata[['numOfPriorDeliveries']] <- 0 # TODO get_prior_deliveries(databaseName)
+  metadata[['numOfPriorDeliveries']] <- querySql(conn,"select count(*) FROM public.allreleases;")[[1]] # TODO get_prior_deliveries(databaseName)
   metadata[['recentFeedback']] <- c("NO FEEDBACK YET") # TODO get_latest_feedback(databaseName)
   section1[['Metadata']] <- metadata
   
@@ -108,12 +108,9 @@ createReportSections <- function  (connectionDetails,
   waveFileCounts <- querySql(conn,glue::glue("select count(*) from public.allfiles WHERE lower(modality) LIKE 'wave%' AND extension IS NOT NULL;"))[[1]]
   imgCounts <- querySql(conn,"select count(DISTINCT person) from public.allfiles WHERE lower(modality) LIKE 'imag%' AND extension IS NOT NULL;")[[1]]
   imgFileCounts <- querySql(conn,"select count(*) from public.allfiles WHERE lower(modality) LIKE 'imag%' AND extension IS NOT NULL;")[[1]]
-  omopCounts <- querySql(conn,"select count(DISTINCT person) from public.allfiles WHERE lower(modality) LIKE 'omop%' AND extension IS NOT NULL;")[[1]]
+  omopCounts <- querySql(conn,"SELECT COUNT(*) FROM omopcdm.person")[[1]]
   omopFileCounts <- querySql(conn,"select count(*) from public.allfiles WHERE (lower(modality) LIKE 'omop%' OR lower(person) = 'omop') AND extension IS NOT NULL;")[[1]]
-  if (identical(omopCounts,integer(0))) {
-    omopCounts <- querySql(conn,"SELECT COUNT(DISTINCT person_id) FROM omopcdm.person")[[1]]
-  }
-  noteCounts <- querySql(conn,"SELECT COUNT(DISTINCT person_id) FROM omopcdm.note")[[1]]
+  noteCounts <- querySql(conn,"SELECT COUNT(*) FROM omopcdm.note")[[1]]
   personsAnyModes <- max(waveCounts, imgCounts, omopCounts) #TODO Add noteCounts eventually
   personsAllModes <- min(waveCounts, imgCounts, omopCounts) #TODO Add noteCounts eventually
   
