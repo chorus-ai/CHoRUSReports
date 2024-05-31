@@ -78,14 +78,14 @@ generateResultsDocument<- function(results, connectionDetails, outputFolder, doc
   
   ## SECTION 1 Table: High-Level Quantities
   metric <- c("# Files Delivered",
-             "DQD Percentage",
+             "DQD Success Percentage",
              "DQD Failed Checks",
              "PHI Issues - OMOP",
              "PHI Issues - Waveform",
              "PHI Issues - Images",
              "PHI Issues - Notes",
              "CHoRUS Quality Checks",
-             "CHoRUS Characterization"
+             "DelPhi Capture Percentage"
   )
   
   value <- c(results$section1$Overview$filesDelivered,
@@ -96,7 +96,7 @@ generateResultsDocument<- function(results, connectionDetails, outputFolder, doc
                results$section1$Overview$phiIssuesIMAG,
                results$section1$Overview$phiIssuesNOTE,
                results$section1$Overview$chorusQC,
-               results$section1$Overview$chorusChars)
+               results$section4$DelphiCounts$delphiPercentCapture)
   
   hloTable <- data.frame(metric,value)
   ft2 <- flextable::qflextable(hloTable)
@@ -239,6 +239,18 @@ generateResultsDocument<- function(results, connectionDetails, outputFolder, doc
   ft7 <- flextable::fontsize(ft7, size = 8)
   ft7 <- flextable::fontsize(ft7, size = 8, part = "header")
   
+  ft8 <- flextable::qflextable(results$section4$DelphiCounts$delphiCountsAll[1:25,])
+  ft8 <- flextable::set_table_properties(ft8, width = 1, layout = "autofit")
+  ft8 <- flextable::theme_zebra(ft8)
+  ft8 <- flextable::fontsize(ft8, size = 8)
+  ft8 <- flextable::fontsize(ft8, size = 8, part = "header")
+  ft8 <- flextable::colformat_int(ft8, big.mark = "") 
+  
+  ft9 <- flextable::qflextable(results$section4$DelphiCounts$delphiGrouped)
+  ft9 <- flextable::set_table_properties(ft9, width = 1, layout = "autofit")
+  ft9 <- flextable::theme_zebra(ft9)
+  ft9 <- flextable::fontsize(ft9, size = 8)
+  ft9 <- flextable::fontsize(ft9, size = 8, part = "header")
   
   
   doc<-doc %>%
@@ -291,7 +303,23 @@ generateResultsDocument<- function(results, connectionDetails, outputFolder, doc
     officer::body_add_break()
   
   doc<-doc %>%
-    officer::body_add_par(value = "Cohort Characterization", style = "heading 1") %>%
+    officer::body_add_par(value = "Data Characterization", style = "heading 1") %>%
+    
+    officer::body_add_par(value = "This section of the report details which concepts from the DelPhi process were captured in the dataset. Note that the most-frequent concepts table shows only the top 25 concepts ordered by frequency, and the rest of the table can be found in the results packet.") %>%
+    
+    officer::body_add_par(value = glue::glue("Most frequent DelPhi concepts in the {databaseName} dataset"), style = "heading 2") %>%
+    
+    flextable::body_add_flextable(value = ft8, align = "left") %>%
+    
+    officer::body_add_break() %>%
+    
+    officer::body_add_par(value = glue::glue("Per-Domain DelPhi concept capture in the {databaseName} dataset"), style = "heading 2") %>%
+    
+    officer::body_add_par(value = "This section details the capture of DelPhi concepts by OMOP domain") %>%
+    
+    flextable::body_add_flextable(value = ft9, align = "left") %>%
+    
+    officer::body_add_break() %>%
     
     officer::body_add_par(value = "This section of the report provides information about how many patients in a site's data set can be captured by cohort definitions from the OHDSI PhenotypeLibrary. ") %>%
     
@@ -323,6 +351,7 @@ generateResultsDocument<- function(results, connectionDetails, outputFolder, doc
   rdsFile <- paste0(outputFolder, "/", databaseName, "-results.rds")
   saveRDS(results, file = rdsFile)
   write.csv(results$section3$DQDResults$allResults, file = paste0(outputFolder, "/", databaseName, "-dqd-results.csv") )
+  write.csv(results$section4$DelphiCounts$delphiCountsAll, file = paste0(outputFolder, "/", databaseName, "-delphi-counts.csv") )
   
   # Upload results object to postgres instance and get oid
   pgHost <- strsplit(connectionDetails$server(), "/")[[1]][1]

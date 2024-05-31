@@ -184,7 +184,75 @@ createReportSections <- function  (connectionDetails,
   
   section4 <- hash()
   cohortsCounts <- hash()
+  delphiCounts <- hash()
   
+  sqlDelphi <- glue::glue("
+  DROP TABLE IF EXISTS public.delphi_capture;
+  CREATE TABLE public.delphi_capture AS (
+  WITH event_concepts AS (
+  SELECT condition_concept_id AS event_concept_id, count(*) AS cnt FROM {cdmDatabaseSchema}.condition_occurrence t
+  INNER JOIN public.delphi_concepts_unique d
+  ON d.del_concept_id = t.condition_concept_id 
+  GROUP BY condition_concept_id
+  UNION
+  SELECT device_concept_id AS event_concept_id, count(*) AS cnt FROM {cdmDatabaseSchema}.device_exposure t
+  INNER JOIN public.delphi_concepts_unique d
+  ON d.del_concept_id = t.device_concept_id 
+  GROUP BY device_concept_id
+  UNION
+  SELECT drug_concept_id AS event_concept_id, count(*) AS cnt FROM {cdmDatabaseSchema}.drug_exposure t
+  INNER JOIN public.delphi_concepts_unique d
+  ON d.del_concept_id = t.drug_concept_id 
+  GROUP BY drug_concept_id
+  UNION
+  SELECT measurement_concept_id AS event_concept_id, count(*) AS cnt FROM {cdmDatabaseSchema}.measurement t
+  INNER JOIN public.delphi_concepts_unique d
+  ON d.del_concept_id = t.measurement_concept_id 
+  GROUP BY measurement_concept_id
+  UNION
+  SELECT observation_concept_id AS event_concept_id, count(*) AS cnt FROM {cdmDatabaseSchema}.observation t
+  INNER JOIN public.delphi_concepts_unique d
+  ON d.del_concept_id = t.observation_concept_id 
+  GROUP BY observation_concept_id
+  UNION
+  SELECT procedure_concept_id AS event_concept_id, count(*) AS cnt FROM {cdmDatabaseSchema}.procedure_occurrence t
+  INNER JOIN public.delphi_concepts_unique d
+  ON d.del_concept_id = t.procedure_concept_id
+  GROUP BY procedure_concept_id
+  )
+  SELECT c.concept_id AS delphi_concept_id, 
+         c.concept_name, 
+         c.domain_id, 
+         COALESCE(e.cnt,0) AS cnt
+  FROM public.delphi_concepts_unique d 
+  LEFT JOIN event_concepts e
+  ON e.event_concept_id = d.del_concept_id
+  INNER JOIN {cdmDatabaseSchema}.concept c
+  ON d.del_concept_id = c.concept_id
+  ORDER BY 4 DESC
+  );
+  ")
+  
+  sqlDelphiGrouped <- "
+  WITH groupDelphi AS (
+    select domain_id, 
+           COUNT(*) AS distinct_concepts_total, 
+           COUNT(DISTINCT CASE WHEN cnt > 0 THEN delphi_concept_id ELSE NULL END) AS captured_concepts_total
+    FROM public.delphi_capture
+    GROUP BY domain_id)
+    SELECT domain_id,
+           distinct_concepts_total,
+           captured_concepts_total,
+           ((captured_concepts_total::float/distinct_concepts_total::float) * 100)::Decimal(3,1) AS captured_percent
+    FROM groupDelphi
+    ORDER BY 4 DESC;
+  "
+  
+  executeSql(conn, sqlDelphi, progressBar = FALSE, reportOverallTime = FALSE)
+  
+  delphiCounts[['delphiCountsAll']] <- querySql(conn, "select * FROM public.delphi_capture;")
+  delphiCounts[['delphiGrouped']] <- querySql(conn, sqlDelphiGrouped)
+  delphiCounts[['delphiPercentCapture']] <- querySql(conn, "select ((COUNT(DISTINCT CASE WHEN cnt > 0 THEN delphi_concept_id ELSE NULL END)::float/count(*)::float) * 100)::decimal(3,2) FROM public.delphi_capture;")[[1]]
   cohortsCounts[['topInNetwork']] <- querySql(connMerge,glue::glue("select description, cnt_merge, percent_merge, cnt_{databaseName} from omopcdm.cohort_reports ORDER BY cnt_merge DESC limit 20;"))
   cohortsCounts[['topInSource']] <- querySql(connMerge,glue::glue("select description, cnt_merge, percent_merge, cnt_{databaseName} from omopcdm.cohort_reports ORDER BY cnt_{databaseName} DESC limit 20;"))
   
