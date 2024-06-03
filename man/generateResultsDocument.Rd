@@ -6,6 +6,7 @@
 \usage{
 generateResultsDocument(
   results,
+  connectionDetails,
   outputFolder,
   docTemplate = "CHoRUS",
   authors = "Author Names",
@@ -18,6 +19,8 @@ generateResultsDocument(
 }
 \arguments{
 \item{results}{Results object from \code{CHoRUSReports}}
+
+\item{connectionDetails}{An R object of type \code{connectionDetails} created using the function \code{createConnectionDetails} in the \code{DatabaseConnector} package.}
 
 \item{outputFolder}{Folder to store the results}
 

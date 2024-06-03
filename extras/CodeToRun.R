@@ -65,18 +65,18 @@ library(magrittr)
 authors <-"CHoRUS Standards Team" # used on the title page
 
 # Details specific to the database:
-databaseId <- "MIMIC" # for example SYNPUF (this will be used as results sub-folder)
-databaseName <- "MIMIC"
-databaseDescription <- "Package Testing for CHoRUS Report Generation"
+databaseId <- "<DATA SITE>" # for example SYNPUF (this will be used as results sub-folder)
+databaseName <- "<DATA SITE>"
+databaseDescription <- "<DATA SITE DESCRIPTION>"
 
 # For Oracle: define a schema that can be used to emulate temp tables:
 oracleTempSchema <- NULL
 
 # Details for connecting to the CDM and storing the results
 outputFolder <- file.path(getwd(), "chorusreports",databaseId)
-cdmDatabaseSchema <- "mimic_demo"
-resultsDatabaseSchema <- "mimic_demo" # Make sure the Achilles results are in this schema!
-vocabDatabaseSchema <- "mimic_demo"
+cdmDatabaseSchema <- "omopcdm"
+resultsDatabaseSchema <- "omopcdm" # Make sure the Achilles results are in this schema!
+vocabDatabaseSchema <- "omopcdm"
 
 # All results smaller than this value are removed from the results.
 smallCellCount <- 10
@@ -85,40 +85,54 @@ outputFolder <- file.path(getwd(), "chorusreports",databaseId)
 
 verboseMode <- TRUE
 
+# Details for storage account with delivery contents
+library(AzureStor)
+accountUrl <- "<AZURE STORAGE URL>"
+accountKey <- "<SHORT-LIVED SAS TOKEN>"
+containerName <- "<DATA SITE CONTAINER>"
+
+
 # *******************************************************
 # SECTION 3: Run the package
 # *******************************************************
 
-connectionDetails <- DatabaseConnector::createConnectionDetails(dbms='<dbms>',
-                                             server='<server>',
-                                             user='<user>',
-                                             password='<password>',
-                                             port='<port>',
-                                             pathToDriver = '<pathToDriver>')
+#Note - be sure to include a /<DB_NAME> in the server argument!
+connectionDetails <- DatabaseConnector::createConnectionDetails(dbms='postgresql',
+                                                                server='<PG HOST>',
+                                                                user='postgres',
+                                                                password='<PG PASSWORD>',
+                                                                pathToDriver = '/opt/jdbc-drivers/')
 
-results<-CHoRUSReports(
+connectionDetailsMerge <- DatabaseConnector::createConnectionDetails(dbms='postgresql',
+                                                                     server='<PG HOST>',
+                                                                     user='postgres',
+                                                                     password='<PG PASSWORD>',
+                                                                     pathToDriver = '/opt/jdbc-drivers/')
+
+
+results <- createReportSections(
   connectionDetails = connectionDetails,
+  connectionDetailsMerge = connectionDetailsMerge,
   cdmDatabaseSchema = cdmDatabaseSchema,
-  resultsDatabaseSchema = resultsDatabaseSchema,
-  vocabDatabaseSchema = vocabDatabaseSchema,
-  oracleTempSchema = oracleTempSchema,
-  databaseId = databaseId,
   databaseName = databaseName,
-  databaseDescription = databaseDescription,
-  runVocabularyChecks = TRUE,
-  runDataTablesChecks = TRUE,
-  smallCellCount = smallCellCount,
-  sqlOnly = FALSE,
+  databaseId = databaseId,
   outputFolder = outputFolder,
-  verboseMode = verboseMode
+  verboseMode = verboseMode,
+  accountUrl = accountUrl,
+  accountKey = accountKey,
+  containerName = containerName,
+  depth = 3
 )
+
 
 generateResultsDocument(
   results,
-  outputFolder,
+  connectionDetails = connectionDetails,
+  outputFolder = outputFolder,
   authors=authors,
   databaseId = databaseId,
   databaseName = databaseName,
   databaseDescription = databaseDescription,
   smallCellCount = smallCellCount
 )
+
