@@ -23,16 +23,13 @@
 #' @param databaseId                       ID of your database, this will be used as subfolder for the results.
 #' @param databaseName		                 String name of the database name. If blank, CDM_SOURCE table will be queried to try to obtain this.
 #' @param databaseDescription              Provide a short description of the database.
-#' @param smallCellCount                   To avoid patient identifiability, cells with small counts (<= smallCellCount) are deleted. Set to NULL if you don't want any deletions.
-#' @param runVocabularyChecks              Boolean to determine if vocabulary checks need to be run. Default = TRUE
-#' @param runDataTablesChecks              Boolean to determine if table checks need to be run. Default = TRUE
-#' @param sqlOnly                          Boolean to determine if Achilles should be fully executed. TRUE = just generate SQL files, don't actually run, FALSE = run Achilles
 #' @param outputFolder                     Path to store logs and SQL files
 #' @param verboseMode                      Boolean to determine if the console will show all execution steps. Default = TRUE
 #' @param accountUrl                       Web location of Azure storage account
 #' @param accountKey                       SAS key for the Azure storage account
 #' @param accountName                      Name of the blob container in question
-#' @return                                 An object of type \code{achillesResults} containing details for connecting to the database containing the results
+#' @param depth                            Depth of the directory structure in the Azure container (should be 3 per convention, but can vary in practice)
+#' @return                                 An object containing per-section tables and parameters for the given data source
 #' @export
 
 createReportSections <- function  (connectionDetails,
@@ -40,8 +37,6 @@ createReportSections <- function  (connectionDetails,
                                    cdmDatabaseSchema,
                                    databaseName = "",
                                    databaseId = "",
-                                   smallCellCount = 5,
-                                   sqlOnly = FALSE,
                                    outputFolder = "output",
                                    verboseMode = TRUE,
                                    accountUrl = "",
@@ -252,11 +247,12 @@ createReportSections <- function  (connectionDetails,
   
   delphiCounts[['delphiCountsAll']] <- querySql(conn, "select * FROM public.delphi_capture;")
   delphiCounts[['delphiGrouped']] <- querySql(conn, sqlDelphiGrouped)
-  delphiCounts[['delphiPercentCapture']] <- querySql(conn, "select ((COUNT(DISTINCT CASE WHEN cnt > 0 THEN delphi_concept_id ELSE NULL END)::float/count(*)::float) * 100)::decimal(3,2) FROM public.delphi_capture;")[[1]]
+  delphiCounts[['delphiPercentCapture']] <- querySql(conn, "select ((COUNT(DISTINCT CASE WHEN cnt > 0 THEN delphi_concept_id ELSE NULL END)::float/count(*)::float) * 100)::decimal(3,1) FROM public.delphi_capture;")[[1]]
   cohortsCounts[['topInNetwork']] <- querySql(connMerge,glue::glue("select description, cnt_merge, percent_merge, cnt_{databaseName} from omopcdm.cohort_reports ORDER BY cnt_merge DESC limit 20;"))
   cohortsCounts[['topInSource']] <- querySql(connMerge,glue::glue("select description, cnt_merge, percent_merge, cnt_{databaseName} from omopcdm.cohort_reports ORDER BY cnt_{databaseName} DESC limit 20;"))
   
   section4[['CohortCounts']] <- cohortsCounts
+  section4[['DelphiCounts']] <- delphiCounts
   reportSections[['section4']] <- section4
   
   

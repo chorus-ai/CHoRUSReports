@@ -44,3 +44,6 @@ vignettes/*.pdf
 # Output
 /chorusreports/
 /chorusreports/TEST/
+
+# Local configuration
+/extras/CodeToRun_LOCAL.R
