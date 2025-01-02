@@ -14,6 +14,7 @@
 #'
 #' @param connectionDetails                An R object of type \code{connectionDetails} created using the function \code{createConnectionDetails} in the \code{DatabaseConnector} package.
 #' @param connectionDetailsMerge           An R object of type \code{connectionDetails} created using the function \code{createConnectionDetails} in the \code{DatabaseConnector} package.
+#' @param connectionDetailsOhdsi           An R object of type \code{connectionDetails} created using the function \code{createConnectionDetails} in the \code{DatabaseConnector} package.
 #' @param cdmDatabaseSchema    	           Fully qualified name of database schema that contains OMOP CDM schema.
 #'                                         On SQL Server, this should specifiy both the database and the schema, so for example, on SQL Server, 'cdm_instance.dbo'.
 #' @param resultsDatabaseSchema		         Fully qualified name of database schema that we can write final results to. Default is cdmDatabaseSchema.
@@ -34,20 +35,30 @@
 
 createReportSections <- function  (connectionDetails,
                                    connectionDetailsMerge,
+                                   connectionDetailsOhdsi,
                                    cdmDatabaseSchema,
                                    databaseName = "",
                                    databaseId = "",
                                    outputFolder = "output",
                                    verboseMode = TRUE,
-                                   accountUrl = "",
-                                   accountKey = "",
-                                   containerName = "",
                                    depth = 3) {
   reportSections <- hash()
   TARGET_PAT_CNT <- 8000
   conn <- connect(connectionDetails)
   connMerge <- connect(connectionDetailsMerge)
+  connOhdsi <- connect(connectionDetailsOhdsi)
   
+  if (databaseName == 'tufts') {
+    containerName <- 'tuft'
+  } else if (databaseName == 'pittsburgh') {
+    containerName <- 'pitts'
+  } else if (databaseName == 'florida') {
+    containerName <- 'uflorida'
+  } else if (databaseName == 'virginia') {
+    containerName <- 'uva'
+  } else {
+    containerName <- databaseName
+  }
   # SECTION 1 - Metadata & Overviews
   
   section1 <- hash()
@@ -55,29 +66,34 @@ createReportSections <- function  (connectionDetails,
   overview <- hash()
   patientCounts <- hash()
   differential <- hash()
-  allFiles <- list_blobs(accountUrl, accountKey, containerName)
-  allFiles <- allFiles %>% janitor::clean_names() # eliminate hash in names from Azure
-  dbWriteTable(conn, "public.allFiles", allFiles, overwrite = TRUE)
+  # allFiles <- list_blobs(accountUrl, accountKey, containerName)
+  # allFiles <- allFiles %>% janitor::clean_names() # eliminate hash in names from Azure
+  # dbWriteTable(conn, "public.allFiles", allFiles, overwrite = TRUE)
+  sqlManifest <- glue::glue("SELECT * FROM public.all_metadata_expanded WHERE container = '{containerName}'") 
+  fileManifest <- DatabaseConnector::querySql(
+    connection = connOhdsi,
+    sql = sqlManifest,
+    snakeCaseToCamelCase = FALSE
+  )
+  dbWriteTable(conn, "public.allFiles", fileManifest, overwrite = TRUE)
+  sqlGrouped <- glue::glue("SELECT * FROM public.by_site_metadata WHERE container = '{containerName}'") 
+  fileGrouped <- DatabaseConnector::querySql(
+    connection = connOhdsi,
+    sql = sqlGrouped,
+    snakeCaseToCamelCase = FALSE
+  )
+  dbWriteTable(conn, "public.groupedFiles", fileGrouped, overwrite = TRUE)
   sqlAllfiles <- glue::glue("
     ALTER TABLE public.allfiles ADD COLUMN person text;
-    ALTER TABLE public.allfiles ADD COLUMN modality text;
-    ALTER TABLE public.allfiles ADD COLUMN filename text;
-    ALTER TABLE public.allfiles ADD COLUMN extension text;
-    
+    ALTER TABLE public.allfiles RENAME COLUMN mode TO modality;
     UPDATE public.allfiles
-    SET person = NULLIF(split_part(name, '/', {depth}-2), ''),
-        modality = NULLIF(split_part(name, '/', {depth}-1), ''),
-        filename = NULLIF(split_part(name, '/', {depth}), '')
+    SET person = NULLIF(split_part(name, '/', {depth}-2), '')
     WHERE name IS NOT NULL;
-    
-    UPDATE public.allfiles
-    SET extension = split_part(filename, '.', -1)
-    WHERE filename IS NOT NULL;
   ")
   
   executeSql(conn, sqlAllfiles, progressBar = FALSE, reportOverallTime = FALSE)
   
-  metadata[['deliveryTime']] <- max(allFiles$last_modified) # get delivery time
+  metadata[['deliveryTime']] <- fileGrouped$MOST_RECENT_UPLOAD[[1]] # get delivery time
   metadata[['packetSize']] <- querySql(conn,"select sum(size)/1000000000 FROM public.allfiles;")[[1]] # get delivery packet size in gb
   metadata[['numOfPriorDeliveries']] <- querySql(conn,"select count(*) FROM public.allreleases;")[[1]] # TODO get_prior_deliveries(databaseName)
   metadata[['recentFeedback']] <- c("NO FEEDBACK YET") # TODO get_latest_feedback(databaseName)
@@ -89,10 +105,10 @@ createReportSections <- function  (connectionDetails,
   overview[['filesDelivered']] <- querySql(conn,"select count(*) FROM public.allfiles WHERE extension IS NOT NULL;")[[1]]
   overview[['qualityChecks']] <- dqdOverview
   overview[['dqdFailures']]   <- querySql(conn, "select count(*) FROM omopcdm.dqdashboard_results WHERE failed = '1';")[[1]]
-  overview[['phiIssuesOMOP']] <- querySql(conn,"select count(*) from omopcdm.phi_output WHERE pred_result = '1';")[[1]]
-  overview[['phiIssuesWAVE']] <- "TBD"
-  overview[['phiIssuesIMAG']] <- "TBD"
-  overview[['phiIssuesNOTE']] <- "TBD"
+  #overview[['phiIssuesOMOP']] <- querySql(conn,"select count(*) from omopcdm.phi_output WHERE pred_result = '1';")[[1]]
+  #overview[['phiIssuesWAVE']] <- "TBD"
+  #overview[['phiIssuesIMAG']] <- "TBD"
+  #overview[['phiIssuesNOTE']] <- "TBD"
   overview[['chorusQC']] <- 'TBD' # TODO get_chorus_qc(databaseName)
   overview[['chorusChars']] <- 'TBD'
   section1[['Overview']] <- overview
@@ -154,10 +170,10 @@ createReportSections <- function  (connectionDetails,
   section2 <- hash()
   phiOverview <- hash()
   
-  phiOverview[['omop']] <- querySql(conn,"select tab, col, phi_prob, uniq_ratio from omopcdm.phi_output WHERE pred_result = 1 order by phi_prob DESC, tab ASC, col ASC LIMIT 20;")
-  phiOverview[['wave']] <- 0 # get_wave_phi()
-  phiOverview[['imag']] <- 0 # get_imag_phi()
-  phiOverview[['note']] <- 0 # get_note_phi()
+  #phiOverview[['omop']] <- querySql(conn,"select tab, col, phi_prob, uniq_ratio from omopcdm.phi_output WHERE pred_result = 1 order by phi_prob DESC, tab ASC, col ASC LIMIT 20;")
+  #phiOverview[['wave']] <- 0 # get_wave_phi()
+  #phiOverview[['imag']] <- 0 # get_imag_phi()
+  #phiOverview[['note']] <- 0 # get_note_phi()
   
   section2[['phiOverview']] <- phiOverview
   
@@ -248,8 +264,8 @@ createReportSections <- function  (connectionDetails,
   delphiCounts[['delphiCountsAll']] <- querySql(conn, "select * FROM public.delphi_capture;")
   delphiCounts[['delphiGrouped']] <- querySql(conn, sqlDelphiGrouped)
   delphiCounts[['delphiPercentCapture']] <- querySql(conn, "select ((COUNT(DISTINCT CASE WHEN cnt > 0 THEN delphi_concept_id ELSE NULL END)::float/count(*)::float) * 100)::decimal(3,1) FROM public.delphi_capture;")[[1]]
-  cohortsCounts[['topInNetwork']] <- querySql(connMerge,glue::glue("select description, cnt_merge, percent_merge, cnt_{databaseName} from omopcdm.cohort_reports ORDER BY cnt_merge DESC limit 20;"))
-  cohortsCounts[['topInSource']] <- querySql(connMerge,glue::glue("select description, cnt_merge, percent_merge, cnt_{databaseName} from omopcdm.cohort_reports ORDER BY cnt_{databaseName} DESC limit 20;"))
+  cohortsCounts[['topInNetwork']] <- querySql(connMerge,glue::glue("select description, cnt_merge, percent_merge, cnt_{databaseName}, ROUND((cnt_{databaseName} / (SELECT count(*) FROM omopcdm.person WHERE src_name = '{databaseName}'))*100, 1) AS percent_{databaseName} from omopcdm.cohort_reports ORDER BY cnt_merge DESC limit 20;"))
+  cohortsCounts[['topInSource']] <- querySql(connMerge,glue::glue("select description, cnt_merge, percent_merge, cnt_{databaseName}, ROUND((cnt_{databaseName} / (SELECT count(*) FROM omopcdm.person WHERE src_name = '{databaseName}'))*100, 1) AS percent_{databaseName} from omopcdm.cohort_reports ORDER BY cnt_{databaseName} DESC limit 20;"))
   
   section4[['CohortCounts']] <- cohortsCounts
   section4[['DelphiCounts']] <- delphiCounts
