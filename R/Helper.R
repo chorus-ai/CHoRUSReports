@@ -10,25 +10,19 @@
 #'
 #' @details
 #' \code{Helper} provides helper functions to create the reports for CHoRUS Data Sites
-#' @param container_url                       Web location of Azure storage account
-#' @param sas                                 SAS key for the Azure storage account
-#' @param container_name                      Name of the blob container in question
-#' @return                                    An object containing the files and their metadata in the relevant storage container on Azure
+#' @param connectionDetails                 connectionDetails object for DatabaseConnector
+#' @param prior_oid                         oid generated during upload of RDS object into postgres
+#' @param databaseName                      Name of the data site under review
+#' @return                                  An object containing results from the most recent run
 #' @export
 #'
 
-list_blobs <- function(container_url, sas, container_name) {
-  # Using AzureStor package
-  library(AzureStor)
-  
-  blob_endpoint <- paste0("https://", container_url, "/")
-  fl_endp_sas <- AzureStor::storage_endpoint(blob_endpoint, sas=sas)
-  blob_container <- AzureStor::storage_container(fl_endp_sas, container_name)
-  
-  # List the blob names
-  #blob_list <- list_blobs(blob_container)
-  files <- AzureStor::list_storage_files(blob_container, recursive=TRUE, info="all")
-  
-  return(files)
+getPriorReleaseRds <- function(connectionDetails, priorOid, databaseName) {
+  pgHost <- strsplit(connectionDetails$server(), "/")[[1]][1]
+  rdsFile <- glue::glue("/tmp/prior_{databaseName}.rds")
+  retrieveLO <- glue::glue("export PGPASSWORD=\"{connectionDetails$password()}\" && psql -h {pgHost} -U postgres -At -c \"\\lo_export {priorOid} '{rdsFile}'\"")
+  success <- system(retrieveLO, intern=TRUE)
+  prior_results <- readRDS(rdsFile)
+  return(prior_results)
 }
 

@@ -7,21 +7,23 @@
 createReportSections(
   connectionDetails,
   connectionDetailsMerge,
+  connectionDetailsOhdsi,
+  cdm,
   cdmDatabaseSchema,
   databaseName = "",
   databaseId = "",
   outputFolder = "output",
-  verboseMode = TRUE,
-  accountUrl = "",
-  accountKey = "",
-  containerName = "",
-  depth = 3
+  verboseMode = TRUE
 )
 }
 \arguments{
 \item{connectionDetails}{An R object of type \code{connectionDetails} created using the function \code{createConnectionDetails} in the \code{DatabaseConnector} package.}
 
 \item{connectionDetailsMerge}{An R object of type \code{connectionDetails} created using the function \code{createConnectionDetails} in the \code{DatabaseConnector} package.}
+
+\item{connectionDetailsOhdsi}{An R object of type \code{connectionDetails} created using the function \code{createConnectionDetails} in the \code{DatabaseConnector} package.}
+
+\item{cdm}{Abstracted cdm connection object from the CDMConnector package: https://github.com/darwin-eu/CDMConnector}
 
 \item{cdmDatabaseSchema}{Fully qualified name of database schema that contains OMOP CDM schema.
 On SQL Server, this should specifiy both the database and the schema, so for example, on SQL Server, 'cdm_instance.dbo'.}
@@ -34,12 +36,6 @@ On SQL Server, this should specifiy both the database and the schema, so for exa
 
 \item{verboseMode}{Boolean to determine if the console will show all execution steps. Default = TRUE}
 
-\item{accountUrl}{Web location of Azure storage account}
-
-\item{accountKey}{SAS key for the Azure storage account}
-
-\item{depth}{Depth of the directory structure in the Azure container (should be 3 per convention, but can vary in practice)}
-
 \item{resultsDatabaseSchema}{Fully qualified name of database schema that we can write final results to. Default is cdmDatabaseSchema.
 On SQL Server, this should specifiy both the database and the schema, so for example, on SQL Server, 'cdm_results.dbo'.}
 
@@ -48,6 +44,10 @@ On SQL Server, this should specifiy both the database and the schema, so for exa
 \item{oracleTempSchema}{For Oracle only: the name of the database schema where you want all temporary tables to be managed. Requires create/insert permissions to this database.}
 
 \item{databaseDescription}{Provide a short description of the database.}
+
+\item{accountUrl}{Web location of Azure storage account}
+
+\item{accountKey}{SAS key for the Azure storage account}
 
 \item{accountName}{Name of the blob container in question}
 }

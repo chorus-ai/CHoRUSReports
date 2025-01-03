@@ -14,6 +14,8 @@
 #'
 #' @param connectionDetails                An R object of type \code{connectionDetails} created using the function \code{createConnectionDetails} in the \code{DatabaseConnector} package.
 #' @param connectionDetailsMerge           An R object of type \code{connectionDetails} created using the function \code{createConnectionDetails} in the \code{DatabaseConnector} package.
+#' @param connectionDetailsOhdsi           An R object of type \code{connectionDetails} created using the function \code{createConnectionDetails} in the \code{DatabaseConnector} package.
+#' @param cdm    	                         Abstracted cdm connection object from the CDMConnector package: https://github.com/darwin-eu/CDMConnector
 #' @param cdmDatabaseSchema    	           Fully qualified name of database schema that contains OMOP CDM schema.
 #'                                         On SQL Server, this should specifiy both the database and the schema, so for example, on SQL Server, 'cdm_instance.dbo'.
 #' @param resultsDatabaseSchema		         Fully qualified name of database schema that we can write final results to. Default is cdmDatabaseSchema.
@@ -28,26 +30,36 @@
 #' @param accountUrl                       Web location of Azure storage account
 #' @param accountKey                       SAS key for the Azure storage account
 #' @param accountName                      Name of the blob container in question
-#' @param depth                            Depth of the directory structure in the Azure container (should be 3 per convention, but can vary in practice)
 #' @return                                 An object containing per-section tables and parameters for the given data source
 #' @export
 
 createReportSections <- function  (connectionDetails,
                                    connectionDetailsMerge,
+                                   connectionDetailsOhdsi,
+                                   cdm,
                                    cdmDatabaseSchema,
                                    databaseName = "",
                                    databaseId = "",
                                    outputFolder = "output",
-                                   verboseMode = TRUE,
-                                   accountUrl = "",
-                                   accountKey = "",
-                                   containerName = "",
-                                   depth = 3) {
+                                   verboseMode = TRUE) {
   reportSections <- hash()
   TARGET_PAT_CNT <- 8000
-  conn <- connect(connectionDetails)
-  connMerge <- connect(connectionDetailsMerge)
+  conn <- DatabaseConnector::connect(connectionDetails)
+  connMerge <- DatabaseConnector::connect(connectionDetailsMerge)
+  connOhdsi <- DatabaseConnector::connect(connectionDetailsOhdsi)
   
+  
+  if (databaseName == 'tufts') {
+    containerName <- 'tuft'
+  } else if (databaseName == 'pittsburgh') {
+    containerName <- 'pitts'
+  } else if (databaseName == 'florida') {
+    containerName <- 'uflorida'
+  } else if (databaseName == 'virginia') {
+    containerName <- 'uva'
+  } else {
+    containerName <- databaseName
+  }
   # SECTION 1 - Metadata & Overviews
   
   section1 <- hash()
@@ -55,33 +67,53 @@ createReportSections <- function  (connectionDetails,
   overview <- hash()
   patientCounts <- hash()
   differential <- hash()
-  allFiles <- list_blobs(accountUrl, accountKey, containerName)
-  allFiles <- allFiles %>% janitor::clean_names() # eliminate hash in names from Azure
-  dbWriteTable(conn, "public.allFiles", allFiles, overwrite = TRUE)
+  # allFiles <- list_blobs(accountUrl, accountKey, containerName)
+  # allFiles <- allFiles %>% janitor::clean_names() # eliminate hash in names from Azure
+  # dbWriteTable(conn, "public.allFiles", allFiles, overwrite = TRUE)
+  sqlManifest <- glue::glue("SELECT * FROM public.all_metadata_expanded WHERE container = '{containerName}'") 
+  fileManifest <- DatabaseConnector::querySql(
+    connection = connOhdsi,
+    sql = sqlManifest,
+    snakeCaseToCamelCase = FALSE
+  )
+  dbWriteTable(conn, "public.allFiles", fileManifest, overwrite = TRUE)
+  sqlGrouped <- glue::glue("SELECT * FROM public.by_site_metadata WHERE container = '{containerName}'") 
+  fileGrouped <- DatabaseConnector::querySql(
+    connection = connOhdsi,
+    sql = sqlGrouped,
+    snakeCaseToCamelCase = FALSE
+  )
+  dbWriteTable(conn, "public.groupedFiles", fileGrouped, overwrite = TRUE)
   sqlAllfiles <- glue::glue("
     ALTER TABLE public.allfiles ADD COLUMN person text;
-    ALTER TABLE public.allfiles ADD COLUMN modality text;
-    ALTER TABLE public.allfiles ADD COLUMN filename text;
-    ALTER TABLE public.allfiles ADD COLUMN extension text;
-    
+    ALTER TABLE public.allfiles RENAME COLUMN mode TO modality;
     UPDATE public.allfiles
-    SET person = NULLIF(split_part(name, '/', {depth}-2), ''),
-        modality = NULLIF(split_part(name, '/', {depth}-1), ''),
-        filename = NULLIF(split_part(name, '/', {depth}), '')
+    SET person = CASE
+           WHEN container = 'columbia' THEN split_part(name, '/', 2)
+           WHEN container = 'duke' THEN split_part(name, '/', 1)
+           WHEN container = 'emory' THEN split_part(name, '/', 2)
+           WHEN container = 'mayo' THEN split_part(split_part(name, '/', 2), '_', 1) -- No person in path
+           WHEN container = 'mgh' THEN split_part(name, '/', 1) -- path leads with person for non-OMOP data
+           WHEN container = 'mit' THEN split_part(name, '/', 2)
+           WHEN container = 'nationwide' THEN split_part(name, '/', 1)
+           WHEN container = 'pitts' THEN split_part(name, '/', 3)
+           WHEN container = 'seattle' THEN split_part(name, '/', 1)
+           WHEN container = 'tuft' THEN split_part(name, '/', 1)
+           WHEN container = 'ucla' THEN replace(split_part(name, '/', 1), 'Person', '')
+           WHEN container = 'uflorida' THEN split_part(name, '/', 1)
+           WHEN container = 'uva' THEN split_part(name, '/', 2)
+           END
     WHERE name IS NOT NULL;
-    
-    UPDATE public.allfiles
-    SET extension = split_part(filename, '.', -1)
-    WHERE filename IS NOT NULL;
   ")
   
   executeSql(conn, sqlAllfiles, progressBar = FALSE, reportOverallTime = FALSE)
   
-  metadata[['deliveryTime']] <- max(allFiles$last_modified) # get delivery time
+  metadata[['deliveryTime']] <- fileGrouped$MOST_RECENT_UPLOAD[[1]] # get delivery time
   metadata[['packetSize']] <- querySql(conn,"select sum(size)/1000000000 FROM public.allfiles;")[[1]] # get delivery packet size in gb
   metadata[['numOfPriorDeliveries']] <- querySql(conn,"select count(*) FROM public.allreleases;")[[1]] # TODO get_prior_deliveries(databaseName)
   metadata[['recentFeedback']] <- c("NO FEEDBACK YET") # TODO get_latest_feedback(databaseName)
   section1[['Metadata']] <- metadata
+  
   
   dqdOverview <- querySql(conn,"select  
                             round(sum(passed)/(sum(passed) + sum(failed))::numeric * 100, 2) as pcnt
@@ -89,10 +121,10 @@ createReportSections <- function  (connectionDetails,
   overview[['filesDelivered']] <- querySql(conn,"select count(*) FROM public.allfiles WHERE extension IS NOT NULL;")[[1]]
   overview[['qualityChecks']] <- dqdOverview
   overview[['dqdFailures']]   <- querySql(conn, "select count(*) FROM omopcdm.dqdashboard_results WHERE failed = '1';")[[1]]
-  overview[['phiIssuesOMOP']] <- querySql(conn,"select count(*) from omopcdm.phi_output WHERE pred_result = '1';")[[1]]
-  overview[['phiIssuesWAVE']] <- "TBD"
-  overview[['phiIssuesIMAG']] <- "TBD"
-  overview[['phiIssuesNOTE']] <- "TBD"
+  #overview[['phiIssuesOMOP']] <- querySql(conn,"select count(*) from omopcdm.phi_output WHERE pred_result = '1';")[[1]]
+  #overview[['phiIssuesWAVE']] <- "TBD"
+  #overview[['phiIssuesIMAG']] <- "TBD"
+  #overview[['phiIssuesNOTE']] <- "TBD"
   overview[['chorusQC']] <- 'TBD' # TODO get_chorus_qc(databaseName)
   overview[['chorusChars']] <- 'TBD'
   section1[['Overview']] <- overview
@@ -113,55 +145,186 @@ createReportSections <- function  (connectionDetails,
   patientCounts[['anyDataPersons']] <- personsAnyModes
   patientCounts[['anyDataFiles']] <- omopFileCounts + imgFileCounts + waveFileCounts
   patientCounts[['anyDataPersonsPct']] <- (personsAnyModes / TARGET_PAT_CNT)*100
-  patientCounts[['anyDataPersonsDelta']] <- 0 # get_patient_counts_delta('any')
   patientCounts[['allDataPersons']] <- personsAllModes
   patientCounts[['allDataFiles']] <- omopFileCounts + imgFileCounts + waveFileCounts
   patientCounts[['allDataPersonsPct']] <- (personsAllModes / TARGET_PAT_CNT)*100
-  patientCounts[['allDataPersonsDelta']] <- 0 # get_patient_counts_delta('all')
   patientCounts[['omopDataFiles']] <- omopFileCounts
   patientCounts[['omopDataPersons']] <- omopCounts
   patientCounts[['omopDataPersonsPct']] <- (omopCounts / TARGET_PAT_CNT)*100
-  patientCounts[['omopDataPersonsDelta']] <- 0 # get_patient_counts_delta('omop')
   patientCounts[['imageDataFiles']] <- imgFileCounts
   patientCounts[['imageDataPersons']] <- imgCounts
   patientCounts[['imageDataPersonsPct']] <- (imgCounts / TARGET_PAT_CNT)*100
-  patientCounts[['imageDataPersonsDelta']] <- 0 # get_patient_counts_delta('image')
   patientCounts[['waveDataFiles']] <- waveFileCounts
   patientCounts[['waveDataPersons']] <- waveCounts
   patientCounts[['waveDataPersonsPct']] <- (waveCounts / TARGET_PAT_CNT)*100
-  patientCounts[['waveDataPersonsDelta']] <- 0 # get_patient_counts_delta('wave')
   patientCounts[['noteDataPersons']] <- noteCounts
   patientCounts[['noteDataFiles']] <- querySql(conn,"SELECT COUNT(*) FROM omopcdm.note")[[1]]
   patientCounts[['noteDataPersonsPct']] <- (noteCounts / TARGET_PAT_CNT)*100
-  patientCounts[['noteDataPersonsDelta']] <- 0 # get_patient_counts_delta('note')
-  approvedPersons <- 0 # TODO get_approved_persons()
-  patientCounts[['allDataApprovedPersons']] <- approvedPersons
-  patientCounts[['allDataApprovedFiles']] <- 0 # get_approved_files
-  patientCounts[['allDataApprovedPersonsPct']] <- (approvedPersons / TARGET_PAT_CNT)*100
-  patientCounts[['allDataApprovedPersonsDelta']] <- 0 # get_patient_counts_delta('approved')
-  deidPersons <- 0 # TODO get_deid_persons()
-  patientCounts[['allDataApprovedDeidPersons']] <- deidPersons
-  patientCounts[['allDataApprovedDeidFiles']] <- 0 # get_approved_deid_files
-  patientCounts[['allDataApprovedDeidPersonsPct']] <- (deidPersons / TARGET_PAT_CNT)*100
-  patientCounts[['allDataApprovedDeidPersonsDelta']] <- 0 # get_patient_counts_delta('deid')
+  #approvedPersons <- 0 # TODO get_approved_persons()
+  #patientCounts[['allDataApprovedPersons']] <- approvedPersons
+  #patientCounts[['allDataApprovedFiles']] <- 0 # get_approved_files
+  #patientCounts[['allDataApprovedPersonsPct']] <- (approvedPersons / TARGET_PAT_CNT)*100
+  #patientCounts[['allDataApprovedPersonsDelta']] <- 0 # get_patient_counts_delta('approved')
+  #deidPersons <- 0 # TODO get_deid_persons()
+  #patientCounts[['allDataApprovedDeidPersons']] <- deidPersons
+  #patientCounts[['allDataApprovedDeidFiles']] <- 0 # get_approved_deid_files
+  #patientCounts[['allDataApprovedDeidPersonsPct']] <- (deidPersons / TARGET_PAT_CNT)*100
+  #patientCounts[['allDataApprovedDeidPersonsDelta']] <- 0 # get_patient_counts_delta('deid')
+  
+  if (metadata$numOfPriorDeliveries >= 1) {
+    prior_oid <- querySql(conn,"select result_oid FROM public.allreleases ORDER BY num_prior_delivs DESC LIMIT 1;")[[1]]
+    prior_results <- getPriorReleaseRds(connectionDetails, prior_oid, databaseName)
+    patientCounts[['allDataPersonsDelta']] <- personsAnyModes - prior_results$section1$PatientCounts$allDataPersons
+    patientCounts[['anyDataPersonsDelta']] <- personsAllModes - prior_results$section1$PatientCounts$anyDataPersons
+    patientCounts[['omopDataPersonsDelta']] <- omopCounts - prior_results$section1$PatientCounts$omopDataPersons
+    patientCounts[['imageDataPersonsDelta']] <- imgCounts - prior_results$section1$PatientCounts$imageDataPersons
+    patientCounts[['waveDataPersonsDelta']] <- waveCounts - prior_results$section1$PatientCounts$waveDataPersons
+    patientCounts[['noteDataPersonsDelta']] <- noteCounts - prior_results$section1$PatientCounts$noteDataPersons
+  } else {
+    patientCounts[['allDataPersonsDelta']] <- personsAnyModes
+    patientCounts[['anyDataPersonsDelta']] <- personsAllModes
+    patientCounts[['omopDataPersonsDelta']] <- omopCounts
+    patientCounts[['imageDataPersonsDelta']] <- imgCounts
+    patientCounts[['waveDataPersonsDelta']] <- waveCounts
+    patientCounts[['noteDataPersonsDelta']] <- noteCounts
+  }
   
   section1[['PatientCounts']] <- patientCounts
   
   reportSections[['section1']] <- section1
   
-  # SECTION 2 - PHI
+  # SECTION 2 - OMOP Characterization
   
   section2 <- hash()
-  phiOverview <- hash()
+  omopOverview <- hash()
+  omopPlots <- hash()
   
-  phiOverview[['omop']] <- querySql(conn,"select tab, col, phi_prob, uniq_ratio from omopcdm.phi_output WHERE pred_result = 1 order by phi_prob DESC, tab ASC, col ASC LIMIT 20;")
-  phiOverview[['wave']] <- 0 # get_wave_phi()
-  phiOverview[['imag']] <- 0 # get_imag_phi()
-  phiOverview[['note']] <- 0 # get_note_phi()
+  # Create OMOP Characterization report using OmopSketch -> https://ohdsi.github.io/OmopSketch/index.html
   
-  section2[['phiOverview']] <- phiOverview
+  omopOverview$condition_occurrence <- OmopSketch::summariseClinicalRecords(cdm, c("condition_occurrence"))
+  omopOverview$device_exposure <- OmopSketch::summariseClinicalRecords(cdm, c("device_exposure"))
+  omopOverview$drug_exposure <- OmopSketch::summariseClinicalRecords(cdm, c("drug_exposure"))
+  omopOverview$observation <- OmopSketch::summariseClinicalRecords(cdm, c("observation"))
+  omopOverview$measurement <- OmopSketch::summariseClinicalRecords(cdm, c("measurement"))
+  omopOverview$procedure_occurrence <- OmopSketch::summariseClinicalRecords(cdm, c("procedure_occurrence"))
+  omopOverview$visit_occurrence <- OmopSketch::summariseClinicalRecords(cdm, c("visit_occurrence"))
+  omopOverview$visit_detail <- OmopSketch::summariseClinicalRecords(cdm, c("visit_detail"))
+  
+  section2[['omopOverview']] <- omopOverview
+  
+  sqlDataDensity <- glue::glue("
+  select t1.table_name as SERIES_NAME,
+	t1.stratum_1 as X_CALENDAR_MONTH,
+	FLOOR(t1.stratum_1/100) AS X_CALENDAR_YEAR,
+	NULLIF(round(1.0*t1.count_value/denom.count_value,2), 0) as Y_RECORD_COUNT
+  from
+  (
+  	select 'Visit occurrence' as table_name, CAST(stratum_1 as bigint) stratum_1, count_value from omopcdm.achilles_results where analysis_id = 220 GROUP BY analysis_id, stratum_1, count_value
+  	union all
+  	select 'Condition occurrence' as table_name, CAST(stratum_1 as bigint) stratum_1, count_value from omopcdm.achilles_results where analysis_id = 420 GROUP BY analysis_id, stratum_1, count_value
+  	union all
+  	select 'Death' as table_name, CAST(stratum_1 as bigint) stratum_1, count_value from omopcdm.achilles_results where analysis_id = 502 GROUP BY analysis_id, stratum_1, count_value
+  	union all
+  	select 'Procedure occurrence' as table_name, CAST(stratum_1 as bigint) stratum_1, count_value from omopcdm.achilles_results where analysis_id = 620 GROUP BY analysis_id, stratum_1, count_value
+  	union all
+  	select 'Drug exposure' as table_name, CAST(stratum_1 as bigint) stratum_1, count_value from omopcdm.achilles_results where analysis_id = 720 GROUP BY analysis_id, stratum_1, count_value
+  	union all
+  	select 'Observation' as table_name, CAST(stratum_1 as bigint) stratum_1, count_value from omopcdm.achilles_results where analysis_id = 820 GROUP BY analysis_id, stratum_1, count_value
+  	union all
+  	select 'Drug era' as table_name, CAST(stratum_1 as bigint) stratum_1, count_value from omopcdm.achilles_results where analysis_id = 920 GROUP BY analysis_id, stratum_1, count_value
+  	union all
+  	select 'Condition era' as table_name, CAST(stratum_1 as bigint) stratum_1, count_value from omopcdm.achilles_results where analysis_id = 1020 GROUP BY analysis_id, stratum_1, count_value
+  	union all
+  	select 'Observation period' as table_name, CAST(stratum_1 as bigint) stratum_1, count_value from omopcdm.achilles_results where analysis_id = 111 GROUP BY analysis_id, stratum_1, count_value
+  	union all
+  	select 'Measurement' as table_name, CAST(stratum_1 as bigint) stratum_1, count_value from omopcdm.achilles_results where analysis_id = 1820 GROUP BY analysis_id, stratum_1, count_value
+  ) t1
+  inner join
+  (select CAST(stratum_1 as bigint) stratum_1, count_value from omopcdm.achilles_results where analysis_id = 117 GROUP BY analysis_id, stratum_1, count_value) denom
+  on t1.stratum_1 = denom.stratum_1
+  WHERE t1.stratum_1 > 202000
+  AND t1.stratum_1 < 202500
+  ORDER BY SERIES_NAME, t1.stratum_1
+  ")
+  # <- DatabaseConnector::querySql(conn, sqlDataDensity) 
+  densityDataSite <- DatabaseConnector::querySql(conn, sqlDataDensity) 
+  densityDataMerge <- DatabaseConnector::querySql(connMerge, sqlDataDensity) 
+  densityPlotSite <- ggplot(densityDataSite, aes(x=X_CALENDAR_MONTH, y=Y_RECORD_COUNT, colour = SERIES_NAME), axis.labels = "all_y") + 
+    geom_point() +
+    facet_grid(cols = vars(X_CALENDAR_YEAR), scales = "free",axis.labels = "all_y") +
+    theme(axis.text.x=element_blank(),axis.ticks.x=element_blank()) + scale_y_continuous(name="Record Counts Per Person", trans="log10") +
+    scale_x_continuous(name="Month of Observation") +
+    ggtitle(label=paste(str_to_upper(databaseName),"records per person")) +
+    labs(colour = "OMOP Table") 
+  densityPlotMerge <- ggplot(densityDataMerge, aes(x=X_CALENDAR_MONTH, y=Y_RECORD_COUNT, colour = SERIES_NAME), axis.labels = "all_y") + 
+    geom_point() +
+    facet_grid(cols = vars(X_CALENDAR_YEAR), scales = "free",axis.labels = "all_y") +
+    theme(axis.text.x=element_blank(),axis.ticks.x=element_blank()) + scale_y_continuous(name="Record Counts Per Person", trans="log10") +
+    scale_x_continuous(name="Month of Observation") +
+    ggtitle(label="MERGE records per person") +
+              labs(colour = "OMOP Table") 
+  densityPlot <- densityPlotSite + densityPlotMerge
+  omopPlots[['densityPlot']] <- densityPlot
+  
+ sqlPie <- "
+   SELECT 'condition_occurrence' AS omop_table,
+         sum(count_value) as cnt
+   FROM omopcdm.achilles_results WHERE analysis_id = 401
+   UNION
+   SELECT 'device_exposure' AS omop_table,
+         sum(count_value) as cnt
+   FROM omopcdm.achilles_results WHERE analysis_id = 2101
+   UNION
+   SELECT 'drug_exposure' AS omop_table, 
+         sum(count_value) as cnt
+   FROM omopcdm.achilles_results WHERE analysis_id = 701
+   UNION
+   SELECT 'observation' AS omop_table,
+         sum(count_value) as cnt
+   FROM omopcdm.achilles_results WHERE analysis_id = 801
+   UNION
+   SELECT 'measurement' AS omop_table,
+         sum(count_value) as cnt
+   FROM omopcdm.achilles_results WHERE analysis_id = 1801
+   UNION
+   SELECT 'procedure_occurrence' AS omop_table,
+         sum(count_value) as cnt
+   FROM omopcdm.achilles_results WHERE analysis_id =601
+   "
+  piePlot <- DatabaseConnector::querySql(conn, sqlPie)
+  piePlotMerge <- DatabaseConnector::querySql(connMerge, sqlPie)
+  dataPieSite <- piePlot %>% 
+   arrange(desc(CNT)) %>%
+   mutate(prop = CNT / sum(piePlot$CNT) * 100) %>%
+   mutate(posy = cumsum(prop) - prop/2)
+  
+  dataPieMerge <- piePlotMerge %>% 
+    arrange(desc(CNT)) %>%
+    mutate(prop = CNT / sum(piePlotMerge$CNT) * 100) %>%
+    mutate(posy = cumsum(prop) - prop/2)
+  
+  sitePiePlot <- ggplot(dataPieSite, aes(x = "", y = CNT, fill = OMOP_TABLE)) +
+    geom_bar(stat = "identity") +
+    coord_polar("y")+ 
+    geom_label_repel(aes(label = paste(round(CNT/1000000, digits=3), 'M')), position = position_stack(vjust = 0.5), show.legend = FALSE) +
+    ggtitle(label=paste(str_to_upper(databaseName), "rows per domain")) +
+    theme_void()
+  
+  mergePiePlot <- ggplot(dataPieMerge, aes(x = "", y = CNT, fill = OMOP_TABLE)) +
+    geom_bar(stat = "identity") +
+    coord_polar("y")+ 
+    geom_label_repel(aes(label = paste(round(CNT/1000000, digits=3), 'M')), position = position_stack(vjust = 0.5), show.legend = FALSE) +
+    ggtitle(label="MERGE rows per domain") +
+    theme_void()
+  
+  piePlot <- sitePiePlot + mergePiePlot
+  omopPlots[['piePlot']] <- piePlot
+  
+    
+  section2[['omopPlots']] <- omopPlots
   
   reportSections[['section2']] <- section2
+  
   
   # SECTION 3 - Data Quality
   
@@ -248,8 +411,8 @@ createReportSections <- function  (connectionDetails,
   delphiCounts[['delphiCountsAll']] <- querySql(conn, "select * FROM public.delphi_capture;")
   delphiCounts[['delphiGrouped']] <- querySql(conn, sqlDelphiGrouped)
   delphiCounts[['delphiPercentCapture']] <- querySql(conn, "select ((COUNT(DISTINCT CASE WHEN cnt > 0 THEN delphi_concept_id ELSE NULL END)::float/count(*)::float) * 100)::decimal(3,1) FROM public.delphi_capture;")[[1]]
-  cohortsCounts[['topInNetwork']] <- querySql(connMerge,glue::glue("select description, cnt_merge, percent_merge, cnt_{databaseName} from omopcdm.cohort_reports ORDER BY cnt_merge DESC limit 20;"))
-  cohortsCounts[['topInSource']] <- querySql(connMerge,glue::glue("select description, cnt_merge, percent_merge, cnt_{databaseName} from omopcdm.cohort_reports ORDER BY cnt_{databaseName} DESC limit 20;"))
+  cohortsCounts[['topInNetwork']] <- querySql(connMerge,glue::glue("select description, cnt_merge, percent_merge, cnt_{databaseName}, ROUND((cnt_{databaseName} / (SELECT count(*) FROM omopcdm.person WHERE src_name = '{databaseName}'))*100, 1) AS percent_{databaseName} from omopcdm.cohort_reports ORDER BY cnt_merge DESC limit 20;"))
+  cohortsCounts[['topInSource']] <- querySql(connMerge,glue::glue("select description, cnt_merge, percent_merge, cnt_{databaseName}, ROUND((cnt_{databaseName} / (SELECT count(*) FROM omopcdm.person WHERE src_name = '{databaseName}'))*100, 1) AS percent_{databaseName} from omopcdm.cohort_reports ORDER BY cnt_{databaseName} DESC limit 20;"))
   
   section4[['CohortCounts']] <- cohortsCounts
   section4[['DelphiCounts']] <- delphiCounts

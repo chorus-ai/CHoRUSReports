@@ -36,7 +36,7 @@ generateResultsDocument<- function(results, connectionDetails, outputFolder, doc
   ## add Title Page
   doc<- doc %>%
     officer::body_add_par(value = paste0("CHoRUS report for the ",toupper(databaseName)," data generating site"), style = "Title") %>%
-    officer::body_add_par(value = paste0("Package Version: ", packageVersion("CHoRUSReports")), style = "Centered") %>%
+    officer::body_add_par(value = paste0("Package Version: ", "2.0.0"), style = "Centered") %>%
     officer::body_add_par(value = paste0("Date: ", date()), style = "Centered") %>%
     officer::body_add_par(value = paste0("Authors: ", authors), style = "Centered") %>%
     officer::body_add_break()
@@ -80,10 +80,6 @@ generateResultsDocument<- function(results, connectionDetails, outputFolder, doc
   metric <- c("# Files Delivered",
              "DQD Success Percentage",
              "DQD Failed Checks",
-             "PHI Issues - OMOP",
-             "PHI Issues - Waveform",
-             "PHI Issues - Images",
-             "PHI Issues - Notes",
              "CHoRUS Quality Checks",
              "DelPhi Capture Percentage"
   )
@@ -91,10 +87,6 @@ generateResultsDocument<- function(results, connectionDetails, outputFolder, doc
   value <- c(results$section1$Overview$filesDelivered,
                results$section1$Overview$qualityChecks,
                results$section1$Overview$dqdFailures,
-               results$section1$Overview$phiIssuesOMOP,
-               results$section1$Overview$phiIssuesWAVE,
-               results$section1$Overview$phiIssuesIMAG,
-               results$section1$Overview$phiIssuesNOTE,
                results$section1$Overview$chorusQC,
                results$section4$DelphiCounts$delphiPercentCapture)
   
@@ -107,25 +99,25 @@ generateResultsDocument<- function(results, connectionDetails, outputFolder, doc
   ft2<-flextable::border_inner_v(ft2, part="all", border = border_v )
   ft2 <- flextable::fontsize(ft2, size = 9, part = "body")
   ft2 <- flextable::fontsize(ft2, size = 10, part = "header")
-  ft2 <- flextable::footnote(ft2,
-                            i = 5:7, j = 1,
-                            value = flextable::as_paragraph(
-                              c(
-                                "PHI tools have not been distributed for this modality"
-                              )
-                            ),
-                            ref_symbols = c("a")
-  )
-  ft2 <- flextable::footnote(ft2,
-                             i = 8:9, j = 1,
-                             value = flextable::as_paragraph(
-                               c(
-                                 "CHoRUS-Specific Characterization is Under Development"
-                               )
-                             ),
-                             ref_symbols = c("b")
-  )
-  ft2 <- flextable::fontsize(ft2, size = 7, part = "footer")
+  #ft2 <- flextable::footnote(ft2,
+  #                          i = 5:7, j = 1,
+  #                          value = flextable::as_paragraph(
+  #                            c(
+  #                              "PHI tools have not been distributed for this modality"
+  #                            )
+  #                          ),
+  #                          ref_symbols = c("a")
+  #)
+  #ft2 <- flextable::footnote(ft2,
+  #                           i = 8:9, j = 1,
+  #                           value = flextable::as_paragraph(
+  #                             c(
+  #                               "CHoRUS-Specific Characterization is Under Development"
+  #                             )
+  #                           ),
+  #                           ref_symbols = c("a")
+  #)
+  #ft2 <- flextable::fontsize(ft2, size = 7, part = "footer")
   
   ## SECTION 1 Table: Patient Targets
   category <- c("ALL Data Modes",
@@ -133,45 +125,35 @@ generateResultsDocument<- function(results, connectionDetails, outputFolder, doc
              "OMOP Data",
              "Imaging Data",
              "Waveform Data",
-             "Note Data",
-             "Approved",
-             "Approved & Deidentified"
+             "Note Data"
   )
   persCnt <- c(results$section1$PatientCounts$allDataPersons,
                     results$section1$PatientCounts$anyDataPersons,
                     results$section1$PatientCounts$omopDataPersons,
                     results$section1$PatientCounts$imageDataPersons,
                     results$section1$PatientCounts$waveDataPersons,
-                    results$section1$PatientCounts$noteDataPersons,
-                    results$section1$PatientCounts$allDataApprovedPersons,
-                    results$section1$PatientCounts$allDataApprovedDeidPersons)
+                    results$section1$PatientCounts$noteDataPersons)
   
   fileCnt   <-  c(results$section1$PatientCounts$allDataFiles,
                   results$section1$PatientCounts$anyDataFiles,
                   results$section1$PatientCounts$omopDataFiles,
                   results$section1$PatientCounts$imageDataFiles,
                   results$section1$PatientCounts$waveDataFiles,
-                  results$section1$PatientCounts$noteDataFiles,
-                  results$section1$PatientCounts$allDataApprovedFiles,
-                  results$section1$PatientCounts$allDataApprovedDeidFiles)
+                  results$section1$PatientCounts$noteDataFiles)
   
   targPct    <- c(results$section1$PatientCounts$allDataPersonsPct,
                         results$section1$PatientCounts$anyDataPersonsPct,
                         results$section1$PatientCounts$omopDataPersonsPct,
                         results$section1$PatientCounts$imageDataPersonsPct,
                         results$section1$PatientCounts$waveDataPersonsPct,
-                        results$section1$PatientCounts$noteDataPersonsPct,
-                        results$section1$PatientCounts$allDataApprovedPersonsPct,
-                        results$section1$PatientCounts$allDataApprovedDeidPersonsPct)
+                        results$section1$PatientCounts$noteDataPersonsPct)
   
   persDelta    <- c(results$section1$PatientCounts$allDataPersonsDelta,
                       results$section1$PatientCounts$anyDataPersonsDelta,
                       results$section1$PatientCounts$omopDataPersonsDelta,
                       results$section1$PatientCounts$imageDataPersonsDelta,
                       results$section1$PatientCounts$waveDataPersonsDelta,
-                      results$section1$PatientCounts$noteDataPersonsDelta,
-                      results$section1$PatientCounts$allDataApprovedPersonsDelta,
-                      results$section1$PatientCounts$allDataApprovedDeidPersonsDelta)
+                      results$section1$PatientCounts$noteDataPersonsDelta)
   
   pcTable <- data.frame(category,fileCnt)
   pcTable["persCnt"] <- persCnt
@@ -186,40 +168,40 @@ generateResultsDocument<- function(results, connectionDetails, outputFolder, doc
   ft3<-flextable::border_inner_v(ft3, part="all", border = border_v )
   ft3 <- flextable::fontsize(ft3, size = 9, part = "body")
   ft3 <- flextable::fontsize(ft3, size = 10, part = "header")
-  ft3 <- flextable::footnote(ft3,
-                             i = 6:8, j = 1,
-                             value = flextable::as_paragraph(
-                               c(
-                                 "Notes have not yet been ingested due to PHI concerns with data deliveries from several sites",
-                                 "The approval process has not yet been defined",
-                                 "The deidentification process has not yet been defined"
-                               )
-                             ),
-                             ref_symbols = c("a", "b", "c")
-  )
+  #ft3 <- flextable::footnote(ft3,
+  #                           i = 6:8, j = 1,
+  #                           value = flextable::as_paragraph(
+  #                             c(
+  #                               "Notes have not yet been ingested due to PHI concerns with data deliveries from several sites",
+  #                               "The approval process has not yet been defined",
+  #                               "The deidentification process has not yet been defined"
+  #                             )
+  #                           ),
+  #                           ref_symbols = c("a", "b", "c")
+  #)
   ft3 <- flextable::fontsize(ft3, size = 7, part = "footer")
   
-  options(warn=-1)
-  if (nrow(results$section2$phiOverview$omop) == 20){
-    results$section2$phiOverview$omop[nrow(results$section2$phiOverview$omop) + 1,] = c("TRUNCATED", "TRUNCATED", "TRUNCATED", "TRUNCATED")
-  }
-  ft4 <- flextable::qflextable(results$section2$phiOverview$omop)
-  options(warn=0)
-  ft4 <- flextable::set_table_properties(ft4, width = 1, layout = "autofit")
-  ft4 <- flextable::theme_zebra(ft4)
-  ft4 <- flextable::fontsize(ft4, size = 8)
-  ft4 <- flextable::fontsize(ft4, size = 8, part = "header")
-  ft4 <- flextable::footnote(ft4,
-                             i = 1, j = 3,
-                             value = flextable::as_paragraph(
-                               c(
-                                 "Note that the PHI tool has not yet been trained on OMOP-shaped data"
-                               )
-                             ),
-                             ref_symbols = c("a"),
-                             part = "header"
-  )
-  ft4 <- flextable::fontsize(ft4, size = 7, part = "footer")
+  #options(warn=-1)
+  #if (nrow(results$section2$phiOverview$omop) == 20){
+  #  results$section2$phiOverview$omop[nrow(results$section2$phiOverview$omop) + 1,] = c("TRUNCATED", "TRUNCATED", "TRUNCATED", "TRUNCATED")
+  #}
+  #ft4 <- flextable::qflextable(results$section2$phiOverview$omop)
+  #options(warn=0)
+  #ft4 <- flextable::set_table_properties(ft4, width = 1, layout = "autofit")
+  #ft4 <- flextable::theme_zebra(ft4)
+  #ft4 <- flextable::fontsize(ft4, size = 8)
+  #ft4 <- flextable::fontsize(ft4, size = 8, part = "header")
+  #ft4 <- flextable::footnote(ft4,
+  #                          i = 1, j = 3,
+  #                           value = flextable::as_paragraph(
+  #                             c(
+  #                               "Note that the PHI tool has not yet been trained on OMOP-shaped data"
+  #                             )
+  #                           ),
+  #                           ref_symbols = c("a"),
+  #                           part = "header"
+  #)
+  #ft4 <- flextable::fontsize(ft4, size = 7, part = "footer")
   
   ft5 <- flextable::qflextable(results$section3$DQDResults$qualityPerCheck)
   ft5 <- flextable::set_table_properties(ft5, width = 1, layout = "autofit")
@@ -252,6 +234,45 @@ generateResultsDocument<- function(results, connectionDetails, outputFolder, doc
   ft9 <- flextable::fontsize(ft9, size = 8)
   ft9 <- flextable::fontsize(ft9, size = 8, part = "header")
   
+  ftCO <- results$section2$omopOverview$condition_occurrence |> OmopSketch::tableClinicalRecords(type = "flextable")
+  ftCO <- flextable::set_table_properties(ftCO, width=1, layout = "autofit")
+  ftCO <- flextable::fontsize(ftCO, size = 8)
+  ftCO <- flextable::fontsize(ftCO, size = 8, part = "header")
+  
+  ftDevE <- results$section2$omopOverview$device_exposure |> OmopSketch::tableClinicalRecords(type = "flextable")
+  ftDevE <- flextable::set_table_properties(ftDevE, width=1, layout = "autofit")
+  ftDevE <- flextable::fontsize(ftDevE, size = 8)
+  ftDevE <- flextable::fontsize(ftDevE, size = 8, part = "header")
+  
+  ftDruE <- results$section2$omopOverview$drug_exposure |> OmopSketch::tableClinicalRecords(type = "flextable")
+  ftDruE <- flextable::set_table_properties(ftDruE, width=1, layout = "autofit")
+  ftDruE <- flextable::fontsize(ftDruE, size = 8)
+  ftDruE <- flextable::fontsize(ftDruE, size = 8, part = "header")
+  
+  ftMeas <- results$section2$omopOverview$measurement |> OmopSketch::tableClinicalRecords(type = "flextable")
+  ftMeas <- flextable::set_table_properties(ftMeas, width=1, layout = "autofit")
+  ftMeas <- flextable::fontsize(ftMeas, size = 8)
+  ftMeas <- flextable::fontsize(ftMeas, size = 8, part = "header")
+  
+  ftObs <- results$section2$omopOverview$observation |> OmopSketch::tableClinicalRecords(type = "flextable")
+  ftObs <- flextable::set_table_properties(ftObs, width=1, layout = "autofit")
+  ftObs <- flextable::fontsize(ftObs, size = 8)
+  ftObs <- flextable::fontsize(ftObs, size = 8, part = "header")
+  
+  ftPO <- results$section2$omopOverview$procedure_occurrence |> OmopSketch::tableClinicalRecords(type = "flextable")
+  ftPO <- flextable::set_table_properties(ftPO, width=1, layout = "autofit")
+  ftPO <- flextable::fontsize(ftPO, size = 8)
+  ftPO <- flextable::fontsize(ftPO, size = 8, part = "header")
+  
+  ftVO <- results$section2$omopOverview$visit_occurrence |> OmopSketch::tableClinicalRecords(type = "flextable")
+  ftVO <- flextable::set_table_properties(ftVO, width=1, layout = "autofit")
+  ftVO <- flextable::fontsize(ftVO, size = 8)
+  ftVO <- flextable::fontsize(ftVO, size = 8, part = "header")
+  
+  ftVD <- results$section2$omopOverview$visit_detail |> OmopSketch::tableClinicalRecords(type = "flextable")
+  ftVD <- flextable::set_table_properties(ftVD, width=1, layout = "autofit")
+  ftVD <- flextable::fontsize(ftVD, size = 8)
+  ftVD <- flextable::fontsize(ftVD, size = 8, part = "header")
   
   doc<-doc %>%
     officer::body_add_par(value = "General Delivery Information", style = "heading 1") %>%
@@ -266,7 +287,7 @@ generateResultsDocument<- function(results, connectionDetails, outputFolder, doc
     
     officer::body_add_par(value = "High-Level Characterization", style = "heading 2") %>%
     
-    officer::body_add_par(value = "The table below includes output counts from various PHI and quality checks executed against the data delivery during the ingestion process") %>%
+    officer::body_add_par(value = "The table below includes output counts from various quality checks executed against the data delivery during the ingestion process") %>%
     
     flextable::body_add_flextable(value = ft2, align = "left") %>%
     
@@ -277,19 +298,74 @@ generateResultsDocument<- function(results, connectionDetails, outputFolder, doc
     flextable::body_add_flextable(value = ft3, align = "left") %>%
   
     officer::body_add_break()
-
+  
   doc<-doc %>%
-    officer::body_add_par(value = "PHI Checks", style = "heading 1") %>%
+    officer::body_add_par(value = "OMOP Characterization", style = "heading 1") %>%
     
-    officer::body_add_par(value = "This section of the report details various checks that were executed against the data delivery. If you'd like to learn more about these checks, please see the [Privacy SOP] documentation") %>%
+    officer::body_add_par(value = "This section of the report details various characterizations that were executed against the data delivery.") %>%
     
-    officer::body_add_par(value = "OMOP-Based PHI Checks", style = "heading 2") %>%
+    officer::body_add_par(value = "OMOP-Based Characterization", style = "heading 2") %>%
     
-    officer::body_add_par(value = "The table below shows checks, executed by the privacy_check_tool, that were deemed to have failed (pred_result = 1) based on the trained model.") %>%
+    officer::body_add_par(value = "The figure below shows relative quantities of events across domain tables, compared with MERGE") %>%
     
-    flextable::body_add_flextable(value = ft4, align = "left") %>%
+    officer::body_add_gg(value=(results$section2$omopPlots$piePlot + plot_layout(ncol = 2, nrow = 1, guides = "collect")& theme(legend.position = 'bottom') ), height=4, scale = 0.7) %>%
+    
+    officer::body_add_break() %>%
+    
+    officer::body_add_par(value = "The figure below shows events per person over time, compared with MERGE") %>%
+    
+    officer::body_add_gg(value=(results$section2$omopPlots$densityPlot + plot_layout(ncol = 2, nrow = 1, guides = "collect", axis_titles = "collect") & theme(legend.position = 'bottom')), height=4, scale = 0.7) %>%
+    
+    officer::body_add_break() %>%
+    
+    officer::body_add_par(value = "The table below shows metadata about the CONDITION OCCURRENCE table") %>%
+    
+    flextable::body_add_flextable(value = ftCO , align = "left") %>%
+    
+    officer::body_add_break() %>%
+    
+    officer::body_add_par(value = "The table below shows metadata about the DEVICE EXPOSURE table") %>%
+    
+    flextable::body_add_flextable(value = ftDevE , align = "left") %>%
+    
+    officer::body_add_break() %>%
+    
+    officer::body_add_par(value = "The table below shows metadata about the DRUG EXPOSURE table") %>%
+    
+    flextable::body_add_flextable(value = ftDruE , align = "left") %>%
+    
+    officer::body_add_break() %>%
+    
+    officer::body_add_par(value = "The table below shows metadata about the MEASUREMENT table") %>%
+    
+    flextable::body_add_flextable(value = ftMeas , align = "left") %>% 
+    
+    officer::body_add_break() %>%
+    
+    officer::body_add_par(value = "The table below shows metadata about the OBSERVATION table") %>%
+    
+    flextable::body_add_flextable(value = ftObs , align = "left") %>% 
+    
+    officer::body_add_break() %>%
+    
+    officer::body_add_par(value = "The table below shows metadata about the PROCEDURE OCCURRENCE table") %>%
+    
+    flextable::body_add_flextable(value = ftPO , align = "left") %>% 
+    
+    officer::body_add_break() %>%
+    
+    officer::body_add_par(value = "The table below shows metadata about the VISIT DETAIL table") %>%
+    
+    flextable::body_add_flextable(value = ftVD , align = "left") %>% 
+    
+    officer::body_add_break() %>%
+    
+    officer::body_add_par(value = "The table below shows metadata about the VISIT OCCURRENCE table") %>%
+    
+    flextable::body_add_flextable(value = ftVO , align = "left") %>%
     
     officer::body_add_break()
+    
   
   doc<-doc %>%
     officer::body_add_par(value = "DQD Checks", style = "heading 1") %>%
@@ -303,7 +379,7 @@ generateResultsDocument<- function(results, connectionDetails, outputFolder, doc
     officer::body_add_break()
   
   doc<-doc %>%
-    officer::body_add_par(value = "Data Characterization", style = "heading 1") %>%
+    officer::body_add_par(value = "Cohort and Concept Characterization", style = "heading 1") %>%
     
     officer::body_add_par(value = "This section of the report details which concepts from the DelPhi process were captured in the dataset. Note that the most-frequent concepts table shows only the top 25 concepts ordered by frequency, and the rest of the table can be found in the results packet.") %>%
     
@@ -360,13 +436,14 @@ generateResultsDocument<- function(results, connectionDetails, outputFolder, doc
   
   dbWriteTable(conn, "public.release_tmp", metadataInsert, overwrite = TRUE)
   sqlInsertCheck <- glue::glue("
+  DELETE FROM public.allreleases WHERE delivered_at::date = (SELECT delivered_at::date FROM public.release_tmp);
   INSERT INTO public.allreleases
   SELECT delivered_at::timestamp,
          packet_size::text,
          num_prior_delivs::integer,
          prior_feedback::text,
          {myoid}
-  FROM public.release_tmp ON CONFLICT DO NOTHING;
+  FROM public.release_tmp;
   DROP TABLE public.release_tmp;
   ")
   executeSql(conn, sqlInsertCheck, progressBar = FALSE, reportOverallTime = FALSE)
