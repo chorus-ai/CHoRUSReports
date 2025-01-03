@@ -2,4 +2,4 @@
 
 export(createReportSections)
 export(generateResultsDocument)
-export(list_blobs)
+export(getPriorReleaseRds)
