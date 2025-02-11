@@ -1,6 +1,6 @@
 Package: CHoRUSReports
 Title: R Package to support report generation following data submission
-Version: 2.1.0
+Version: 2.2.0
 Authors@R:
     person(given = "Jared",
            family = "Houghtaling",
