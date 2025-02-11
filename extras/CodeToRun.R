@@ -57,82 +57,122 @@ Sys.setenv("R_REMOTES_NO_ERRORS_FROM_WARNINGS" = TRUE)
 # *******************************************************
 # SECTION 2: Set Local Details
 # *******************************************************
-library(CHoRUSReports)
+
+#library(CHoRUSReports)
 library(officer)
 library(magrittr)
+library(DatabaseConnector)
+library(ggplot2)
+library(ggrepel)
+library(dplyr)
+library(stringr)
+library(patchwork)
+library(hash)
 
-# Author details
-authors <-"CHoRUS Standards Team" # used on the title page
-
-# Details specific to the database:
-databaseId <- "<DATA SITE>" # for example SYNPUF (this will be used as results sub-folder)
-databaseName <- "<DATA SITE>"
-databaseDescription <- "<DATA SITE DESCRIPTION>"
-
-# For Oracle: define a schema that can be used to emulate temp tables:
-oracleTempSchema <- NULL
-
-# Details for connecting to the CDM and storing the results
-outputFolder <- file.path(getwd(), "chorusreports",databaseId)
-cdmDatabaseSchema <- "omopcdm"
-resultsDatabaseSchema <- "omopcdm" # Make sure the Achilles results are in this schema!
-vocabDatabaseSchema <- "omopcdm"
-
-# All results smaller than this value are removed from the results.
-smallCellCount <- 10
-
-outputFolder <- file.path(getwd(), "chorusreports",databaseId)
-
-verboseMode <- TRUE
-
-# Details for storage account with delivery contents
-library(AzureStor)
-accountUrl <- "<AZURE STORAGE URL>"
-accountKey <- "<SHORT-LIVED SAS TOKEN>"
-containerName <- "<DATA SITE CONTAINER>"
-
-
-# *******************************************************
-# SECTION 3: Run the package
-# *******************************************************
-
-#Note - be sure to include a /<DB_NAME> in the server argument!
-connectionDetails <- DatabaseConnector::createConnectionDetails(dbms='postgresql',
-                                                                server='<PG HOST>',
-                                                                user='postgres',
-                                                                password='<PG PASSWORD>',
-                                                                pathToDriver = '/opt/jdbc-drivers/')
-
-connectionDetailsMerge <- DatabaseConnector::createConnectionDetails(dbms='postgresql',
-                                                                     server='<PG HOST>',
-                                                                     user='postgres',
-                                                                     password='<PG PASSWORD>',
-                                                                     pathToDriver = '/opt/jdbc-drivers/')
-
-
-results <- createReportSections(
-  connectionDetails = connectionDetails,
-  connectionDetailsMerge = connectionDetailsMerge,
-  cdmDatabaseSchema = cdmDatabaseSchema,
-  databaseName = databaseName,
-  databaseId = databaseId,
-  outputFolder = outputFolder,
-  verboseMode = verboseMode,
-  accountUrl = accountUrl,
-  accountKey = accountKey,
-  containerName = containerName,
-  depth = 3
+site_list = c('columbia',
+              'duke',
+              'emory',
+              'mgh',
+              'mit',
+              'mayo',
+              'nationwide',
+              'ucla',
+              #'ucsf',
+              'florida',
+              'pittsburgh',
+              'seattle',
+              'virginia',
+              'tufts'
 )
 
+# *******************************************************
+# SECTION 3: Run the report generation process
+# *******************************************************
 
-generateResultsDocument(
-  results,
-  connectionDetails = connectionDetails,
-  outputFolder = outputFolder,
-  authors=authors,
-  databaseId = databaseId,
-  databaseName = databaseName,
-  databaseDescription = databaseDescription,
-  smallCellCount = smallCellCount
-)
+for (site in site_list) {
+
+  print(paste0("Generating feedback report for ", site))
+  # Author details
+  authors <-"CHoRUS Standards Team" # used on the title page
+
+  # Details specific to the database:
+  databaseId <- site
+  databaseName <- site
+  databaseDescription <- paste0("Data delivery provided by ", site)
+
+  # For Oracle: define a schema that can be used to emulate temp tables:
+  oracleTempSchema <- NULL
+
+  # Details for connecting to the CDM and storing the results
+  outputFolder <- file.path(getwd(), "chorusreports",databaseId)
+  cdmDatabaseSchema <- "omopcdm"
+  resultsDatabaseSchema <- "omopcdm" # Make sure the Achilles results are in this schema!
+  vocabDatabaseSchema <- "omopcdm"
+
+  # All results smaller than this value are removed from the results.
+  smallCellCount <- 10
+
+  outputFolder <- file.path(getwd(), "chorusreports",databaseId)
+
+  verboseMode <- TRUE
+
+
+  connectionDetails <- DatabaseConnector::createConnectionDetails(dbms='postgresql',
+                                                                  server=paste0('<DBHOST>', databaseName),
+                                                                  user='postgres',
+                                                                  password='<DBPASSWORD>',
+                                                                  pathToDriver = '/opt/jdbc-drivers/')
+
+  connectionDetailsMerge <- DatabaseConnector::createConnectionDetails(dbms='postgresql',
+                                                                       server='<DBHOST>',
+                                                                       user='postgres',
+                                                                       password='<DBPASSWORD>',
+                                                                       pathToDriver = '/opt/jdbc-drivers/')
+
+  connectionDetailsOhdsi <- DatabaseConnector::createConnectionDetails(dbms='postgresql',
+                                                                       server='<DBHOST>',
+                                                                       user='postgres',
+                                                                       password='<DBPASSWORD>',
+                                                                       pathToDriver = '/opt/jdbc-drivers/')
+  print("Making CDM connection for table characterization...")
+  cdm <- CDMConnector::cdmFromCon(
+    con = DBI::dbConnect(
+      drv = RPostgres::Postgres(), dbname =databaseName,
+      host = '<DBHOST>', port = 5432,
+      user = 'postgres', password = '<DBPASSWORD>'
+    ),
+    cdmSchema = "omopcdm",
+    writeSchema = "public",
+    writePrefix = "report_",
+    cdmName= str_to_upper(databaseName)
+  )
+  print("CDM connection established!")
+
+  print("Beginning to build report sections...")
+  results <- createReportSections(
+    connectionDetails = connectionDetails,
+    connectionDetailsMerge = connectionDetailsMerge,
+    connectionDetailsOhdsi = connectionDetailsOhdsi,
+    cdm,
+    cdmDatabaseSchema = cdmDatabaseSchema,
+    databaseName = databaseName,
+    databaseId = databaseName,
+    outputFolder = outputFolder,
+    verboseMode = verboseMode
+  )
+  print("Sections complete!")
+
+  print("Stiching sections together into complete document...")
+  generateResultsDocument(
+    results,
+    connectionDetails = connectionDetails,
+    outputFolder = outputFolder,
+    authors=authors,
+    databaseId = databaseId,
+    databaseName = databaseName,
+    databaseDescription = databaseDescription,
+    smallCellCount = smallCellCount
+  )
+  print(paste0("Report finished for ", site))
+}
 

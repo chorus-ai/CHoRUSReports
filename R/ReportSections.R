@@ -61,7 +61,7 @@ createReportSections <- function  (connectionDetails,
     containerName <- databaseName
   }
   # SECTION 1 - Metadata & Overviews
-  
+  print("Generating: SECTION 1 - Metadata & Overviews")
   section1 <- hash()
   metadata <- hash()
   overview <- hash()
@@ -70,13 +70,15 @@ createReportSections <- function  (connectionDetails,
   # allFiles <- list_blobs(accountUrl, accountKey, containerName)
   # allFiles <- allFiles %>% janitor::clean_names() # eliminate hash in names from Azure
   # dbWriteTable(conn, "public.allFiles", allFiles, overwrite = TRUE)
-  sqlManifest <- glue::glue("SELECT * FROM public.all_metadata_expanded WHERE container = '{containerName}'") 
-  fileManifest <- DatabaseConnector::querySql(
-    connection = connOhdsi,
-    sql = sqlManifest,
-    snakeCaseToCamelCase = FALSE
-  )
-  dbWriteTable(conn, "public.allFiles", fileManifest, overwrite = TRUE)
+  if (databaseName != 'emory') {
+    sqlManifest <- glue::glue("SELECT * FROM public.all_metadata_expanded WHERE container = '{containerName}'") 
+    fileManifest <- DatabaseConnector::querySql(
+      connection = connOhdsi,
+      sql = sqlManifest,
+      snakeCaseToCamelCase = FALSE
+    )
+    dbWriteTable(conn, "public.allFiles", fileManifest, overwrite = TRUE)
+  }
   sqlGrouped <- glue::glue("SELECT * FROM public.by_site_metadata WHERE container = '{containerName}'") 
   fileGrouped <- DatabaseConnector::querySql(
     connection = connOhdsi,
@@ -137,7 +139,7 @@ createReportSections <- function  (connectionDetails,
   imgFileCounts <- querySql(conn,"select count(*) from public.allfiles WHERE lower(modality) LIKE 'imag%' AND extension IS NOT NULL;")[[1]]
   omopCounts <- querySql(conn,"SELECT COUNT(*) FROM omopcdm.person")[[1]]
   omopFileCounts <- querySql(conn,"select count(*) from public.allfiles WHERE (lower(modality) LIKE 'omop%' OR lower(person) = 'omop') AND extension IS NOT NULL;")[[1]]
-  noteCounts <- querySql(conn,"SELECT COUNT(*) FROM omopcdm.note")[[1]]
+  noteCounts <- querySql(conn,"SELECT COUNT(DISTINCT(person_id)) FROM omopcdm.note")[[1]]
   personsAnyModes <- max(waveCounts, imgCounts, omopCounts) #TODO Add noteCounts eventually
   personsAllModes <- min(waveCounts, imgCounts, omopCounts) #TODO Add noteCounts eventually
   
@@ -174,15 +176,15 @@ createReportSections <- function  (connectionDetails,
   if (metadata$numOfPriorDeliveries >= 1) {
     prior_oid <- querySql(conn,"select result_oid FROM public.allreleases ORDER BY num_prior_delivs DESC LIMIT 1;")[[1]]
     prior_results <- getPriorReleaseRds(connectionDetails, prior_oid, databaseName)
-    patientCounts[['allDataPersonsDelta']] <- personsAnyModes - prior_results$section1$PatientCounts$allDataPersons
-    patientCounts[['anyDataPersonsDelta']] <- personsAllModes - prior_results$section1$PatientCounts$anyDataPersons
+    patientCounts[['allDataPersonsDelta']] <- personsAllModes - prior_results$section1$PatientCounts$allDataPersons
+    patientCounts[['anyDataPersonsDelta']] <- personsAnyModes - prior_results$section1$PatientCounts$anyDataPersons
     patientCounts[['omopDataPersonsDelta']] <- omopCounts - prior_results$section1$PatientCounts$omopDataPersons
     patientCounts[['imageDataPersonsDelta']] <- imgCounts - prior_results$section1$PatientCounts$imageDataPersons
     patientCounts[['waveDataPersonsDelta']] <- waveCounts - prior_results$section1$PatientCounts$waveDataPersons
     patientCounts[['noteDataPersonsDelta']] <- noteCounts - prior_results$section1$PatientCounts$noteDataPersons
   } else {
-    patientCounts[['allDataPersonsDelta']] <- personsAnyModes
-    patientCounts[['anyDataPersonsDelta']] <- personsAllModes
+    patientCounts[['allDataPersonsDelta']] <- personsAllModes
+    patientCounts[['anyDataPersonsDelta']] <- personsAnyModes
     patientCounts[['omopDataPersonsDelta']] <- omopCounts
     patientCounts[['imageDataPersonsDelta']] <- imgCounts
     patientCounts[['waveDataPersonsDelta']] <- waveCounts
@@ -192,8 +194,10 @@ createReportSections <- function  (connectionDetails,
   section1[['PatientCounts']] <- patientCounts
   
   reportSections[['section1']] <- section1
+  print("SECTION 1 generated!")
   
   # SECTION 2 - OMOP Characterization
+  print("Generating: SECTION 2 - OMOP Characterization")
   
   section2 <- hash()
   omopOverview <- hash()
@@ -263,7 +267,20 @@ createReportSections <- function  (connectionDetails,
     scale_x_continuous(name="Month of Observation") +
     ggtitle(label="MERGE records per person") +
               labs(colour = "OMOP Table") 
-  densityPlot <- densityPlotSite + densityPlotMerge
+  
+  if (nrow(densityDataSite) == 0) {
+    densityDummy <- data.frame(SERIES_NAME=c("Death"),X_CALENDAR_MONTH=c(202001), X_CALENDAR_YEAR=c(2020), Y_RECORD_COUNT=c(1))
+    densityPlotDummy <- ggplot(densityDummy, aes(x=X_CALENDAR_MONTH, y=Y_RECORD_COUNT, colour = SERIES_NAME), axis.labels = "all_y") + 
+      geom_point() +
+      facet_grid(cols = vars(X_CALENDAR_YEAR), scales = "free",axis.labels = "all_y") +
+      theme(axis.text.x=element_blank(),axis.ticks.x=element_blank()) + scale_y_continuous(name="Record Counts Per Person", trans="log10") +
+      scale_x_continuous(name="Month of Observation") +
+      ggtitle(label="No Records in Expected Date Range") +
+      labs(colour = "OMOP Table") 
+    densityPlot <- densityPlotDummy + densityPlotMerge
+  } else {
+    densityPlot <- densityPlotSite + densityPlotMerge
+  }
   omopPlots[['densityPlot']] <- densityPlot
   
  sqlPie <- "
@@ -325,8 +342,9 @@ createReportSections <- function  (connectionDetails,
   
   reportSections[['section2']] <- section2
   
-  
+  print("SECTION 2 generated!")
   # SECTION 3 - Data Quality
+  print("Generating: SECTION 3 - Data Quality")
   
   section3 <- hash()
   dqdResults <- hash()
@@ -337,9 +355,9 @@ createReportSections <- function  (connectionDetails,
   section3[['DQDResults']] <- dqdResults
   
   reportSections[['section3']] <- section3
-  
+  print("SECTION 3 generated!")
   # SECTION 4 - Cohorts and Characterization
-  
+  print("Generating: SECTION 4 - Cohorts and Characterization")
   section4 <- hash()
   cohortsCounts <- hash()
   delphiCounts <- hash()
@@ -417,7 +435,7 @@ createReportSections <- function  (connectionDetails,
   section4[['CohortCounts']] <- cohortsCounts
   section4[['DelphiCounts']] <- delphiCounts
   reportSections[['section4']] <- section4
-  
+  print("SECTION 4 generated!")
   
   disconnect(conn)
   disconnect(connMerge)
