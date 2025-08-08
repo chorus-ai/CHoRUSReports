@@ -316,7 +316,7 @@ generateResultsDocument<- function(results, connectionDetails, outputFolder, doc
     
     officer::body_add_gg(value=(results$section2$omopPlots$densityPlot + plot_layout(ncol = 2, nrow = 1, guides = "collect", axis_titles = "collect") & theme(legend.position = 'bottom')), height=4, scale = 0.7) %>%
     
-    officer::body_add_break() %>%
+    officer::body_add_break()
     
 #     officer::body_add_par(value = "The table below shows metadata about the CONDITION OCCURRENCE table") %>%
 #
