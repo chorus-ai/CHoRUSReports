@@ -70,15 +70,13 @@ createReportSections <- function  (connectionDetails,
   # allFiles <- list_blobs(accountUrl, accountKey, containerName)
   # allFiles <- allFiles %>% janitor::clean_names() # eliminate hash in names from Azure
   # dbWriteTable(conn, "public.allFiles", allFiles, overwrite = TRUE)
-  if (databaseName != 'emory') {
-    sqlManifest <- glue::glue("SELECT * FROM public.all_metadata_expanded WHERE container = '{containerName}'")
-    fileManifest <- DatabaseConnector::querySql(
-      connection = connOhdsi,
-      sql = sqlManifest,
-      snakeCaseToCamelCase = FALSE
-    )
-    dbWriteTable(conn, "public.allFiles", fileManifest, overwrite = TRUE)
-  }
+  sqlManifest <- glue::glue("SELECT * FROM public.all_metadata_expanded WHERE container = '{containerName}'")
+  fileManifest <- DatabaseConnector::querySql(
+    connection = connOhdsi,
+    sql = sqlManifest,
+    snakeCaseToCamelCase = FALSE
+  )
+  dbWriteTable(conn, "public.allFiles", fileManifest, overwrite = TRUE)
   sqlGrouped <- glue::glue("SELECT * FROM public.by_site_metadata WHERE container = '{containerName}'")
   fileGrouped <- DatabaseConnector::querySql(
     connection = connOhdsi,
