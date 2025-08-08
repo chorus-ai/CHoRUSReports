@@ -431,7 +431,7 @@ generateResultsDocument<- function(results, connectionDetails, outputFolder, doc
   
   # Upload results object to postgres instance and get oid
   pgHost <- strsplit(connectionDetails$server(), "/")[[1]][1]
-  sendLO <- glue::glue("export PGPASSWORD=\"{connectionDetails$password()}\" && psql -h {pgHost} -U postgres -At -c \"\\lo_import '{rdsFile}'\" | tail -1 | cut -d \" \" -f 2")
+  sendLO <- glue::glue("export PGPASSWORD=\"{connectionDetails$password()}\" && psql -h {pgHost} -d {databaseName} -U postgres -At -c \"\\lo_import '{rdsFile}'\" | tail -1 | cut -d \" \" -f 2")
   myoid <- system(sendLO, intern=TRUE)
   
   dbWriteTable(conn, "public.release_tmp", metadataInsert, overwrite = TRUE)
