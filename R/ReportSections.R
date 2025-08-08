@@ -199,9 +199,9 @@ createReportSections <- function  (connectionDetails,
 #   # SECTION 2 - OMOP Characterization
 #   print("Generating: SECTION 2 - OMOP Characterization")
 #
-#   section2 <- hash()
-#   omopOverview <- hash()
-#   omopPlots <- hash()
+  section2 <- hash()
+  omopOverview <- hash()
+  omopPlots <- hash()
 #
 #   # Create OMOP Characterization report using OmopSketch -> https://ohdsi.github.io/OmopSketch/index.html
 #
@@ -214,7 +214,7 @@ createReportSections <- function  (connectionDetails,
 #   omopOverview$visit_occurrence <- OmopSketch::summariseClinicalRecords(cdm, c("visit_occurrence"))
 #   omopOverview$visit_detail <- OmopSketch::summariseClinicalRecords(cdm, c("visit_detail"))
 #
-  section2[['omopOverview']] <- NULL
+  section2[['omopOverview']] <- omopOverview
   
   sqlDataDensity <- glue::glue("
   select t1.table_name as SERIES_NAME,
