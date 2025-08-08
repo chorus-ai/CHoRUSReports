@@ -196,25 +196,25 @@ createReportSections <- function  (connectionDetails,
   reportSections[['section1']] <- section1
   print("SECTION 1 generated!")
   
-  # SECTION 2 - OMOP Characterization
-  print("Generating: SECTION 2 - OMOP Characterization")
-  
-  section2 <- hash()
-  omopOverview <- hash()
-  omopPlots <- hash()
-  
-  # Create OMOP Characterization report using OmopSketch -> https://ohdsi.github.io/OmopSketch/index.html
-  
-  omopOverview$condition_occurrence <- OmopSketch::summariseClinicalRecords(cdm, c("condition_occurrence"))
-  omopOverview$device_exposure <- OmopSketch::summariseClinicalRecords(cdm, c("device_exposure"))
-  omopOverview$drug_exposure <- OmopSketch::summariseClinicalRecords(cdm, c("drug_exposure"))
-  omopOverview$observation <- OmopSketch::summariseClinicalRecords(cdm, c("observation"))
-  omopOverview$measurement <- OmopSketch::summariseClinicalRecords(cdm, c("measurement"))
-  omopOverview$procedure_occurrence <- OmopSketch::summariseClinicalRecords(cdm, c("procedure_occurrence"))
-  omopOverview$visit_occurrence <- OmopSketch::summariseClinicalRecords(cdm, c("visit_occurrence"))
-  omopOverview$visit_detail <- OmopSketch::summariseClinicalRecords(cdm, c("visit_detail"))
-  
-  section2[['omopOverview']] <- omopOverview
+#   # SECTION 2 - OMOP Characterization
+#   print("Generating: SECTION 2 - OMOP Characterization")
+#
+#   section2 <- hash()
+#   omopOverview <- hash()
+#   omopPlots <- hash()
+#
+#   # Create OMOP Characterization report using OmopSketch -> https://ohdsi.github.io/OmopSketch/index.html
+#
+#   omopOverview$condition_occurrence <- OmopSketch::summariseClinicalRecords(cdm, c("condition_occurrence"))
+#   omopOverview$device_exposure <- OmopSketch::summariseClinicalRecords(cdm, c("device_exposure"))
+#   omopOverview$drug_exposure <- OmopSketch::summariseClinicalRecords(cdm, c("drug_exposure"))
+#   omopOverview$observation <- OmopSketch::summariseClinicalRecords(cdm, c("observation"))
+#   omopOverview$measurement <- OmopSketch::summariseClinicalRecords(cdm, c("measurement"))
+#   omopOverview$procedure_occurrence <- OmopSketch::summariseClinicalRecords(cdm, c("procedure_occurrence"))
+#   omopOverview$visit_occurrence <- OmopSketch::summariseClinicalRecords(cdm, c("visit_occurrence"))
+#   omopOverview$visit_detail <- OmopSketch::summariseClinicalRecords(cdm, c("visit_detail"))
+#
+  section2[['omopOverview']] <- NULL
   
   sqlDataDensity <- glue::glue("
   select t1.table_name as SERIES_NAME,

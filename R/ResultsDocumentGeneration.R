@@ -234,45 +234,45 @@ generateResultsDocument<- function(results, connectionDetails, outputFolder, doc
   ft9 <- flextable::fontsize(ft9, size = 8)
   ft9 <- flextable::fontsize(ft9, size = 8, part = "header")
   
-  ftCO <- results$section2$omopOverview$condition_occurrence |> OmopSketch::tableClinicalRecords(type = "flextable")
-  ftCO <- flextable::set_table_properties(ftCO, width=1, layout = "autofit")
-  ftCO <- flextable::fontsize(ftCO, size = 8)
-  ftCO <- flextable::fontsize(ftCO, size = 8, part = "header")
-  
-  ftDevE <- results$section2$omopOverview$device_exposure |> OmopSketch::tableClinicalRecords(type = "flextable")
-  ftDevE <- flextable::set_table_properties(ftDevE, width=1, layout = "autofit")
-  ftDevE <- flextable::fontsize(ftDevE, size = 8)
-  ftDevE <- flextable::fontsize(ftDevE, size = 8, part = "header")
-  
-  ftDruE <- results$section2$omopOverview$drug_exposure |> OmopSketch::tableClinicalRecords(type = "flextable")
-  ftDruE <- flextable::set_table_properties(ftDruE, width=1, layout = "autofit")
-  ftDruE <- flextable::fontsize(ftDruE, size = 8)
-  ftDruE <- flextable::fontsize(ftDruE, size = 8, part = "header")
-  
-  ftMeas <- results$section2$omopOverview$measurement |> OmopSketch::tableClinicalRecords(type = "flextable")
-  ftMeas <- flextable::set_table_properties(ftMeas, width=1, layout = "autofit")
-  ftMeas <- flextable::fontsize(ftMeas, size = 8)
-  ftMeas <- flextable::fontsize(ftMeas, size = 8, part = "header")
-  
-  ftObs <- results$section2$omopOverview$observation |> OmopSketch::tableClinicalRecords(type = "flextable")
-  ftObs <- flextable::set_table_properties(ftObs, width=1, layout = "autofit")
-  ftObs <- flextable::fontsize(ftObs, size = 8)
-  ftObs <- flextable::fontsize(ftObs, size = 8, part = "header")
-  
-  ftPO <- results$section2$omopOverview$procedure_occurrence |> OmopSketch::tableClinicalRecords(type = "flextable")
-  ftPO <- flextable::set_table_properties(ftPO, width=1, layout = "autofit")
-  ftPO <- flextable::fontsize(ftPO, size = 8)
-  ftPO <- flextable::fontsize(ftPO, size = 8, part = "header")
-  
-  ftVO <- results$section2$omopOverview$visit_occurrence |> OmopSketch::tableClinicalRecords(type = "flextable")
-  ftVO <- flextable::set_table_properties(ftVO, width=1, layout = "autofit")
-  ftVO <- flextable::fontsize(ftVO, size = 8)
-  ftVO <- flextable::fontsize(ftVO, size = 8, part = "header")
-  
-  ftVD <- results$section2$omopOverview$visit_detail |> OmopSketch::tableClinicalRecords(type = "flextable")
-  ftVD <- flextable::set_table_properties(ftVD, width=1, layout = "autofit")
-  ftVD <- flextable::fontsize(ftVD, size = 8)
-  ftVD <- flextable::fontsize(ftVD, size = 8, part = "header")
+#   ftCO <- results$section2$omopOverview$condition_occurrence |> OmopSketch::tableClinicalRecords(type = "flextable")
+#   ftCO <- flextable::set_table_properties(ftCO, width=1, layout = "autofit")
+#   ftCO <- flextable::fontsize(ftCO, size = 8)
+#   ftCO <- flextable::fontsize(ftCO, size = 8, part = "header")
+#
+#   ftDevE <- results$section2$omopOverview$device_exposure |> OmopSketch::tableClinicalRecords(type = "flextable")
+#   ftDevE <- flextable::set_table_properties(ftDevE, width=1, layout = "autofit")
+#   ftDevE <- flextable::fontsize(ftDevE, size = 8)
+#   ftDevE <- flextable::fontsize(ftDevE, size = 8, part = "header")
+#
+#   ftDruE <- results$section2$omopOverview$drug_exposure |> OmopSketch::tableClinicalRecords(type = "flextable")
+#   ftDruE <- flextable::set_table_properties(ftDruE, width=1, layout = "autofit")
+#   ftDruE <- flextable::fontsize(ftDruE, size = 8)
+#   ftDruE <- flextable::fontsize(ftDruE, size = 8, part = "header")
+#
+#   ftMeas <- results$section2$omopOverview$measurement |> OmopSketch::tableClinicalRecords(type = "flextable")
+#   ftMeas <- flextable::set_table_properties(ftMeas, width=1, layout = "autofit")
+#   ftMeas <- flextable::fontsize(ftMeas, size = 8)
+#   ftMeas <- flextable::fontsize(ftMeas, size = 8, part = "header")
+#
+#   ftObs <- results$section2$omopOverview$observation |> OmopSketch::tableClinicalRecords(type = "flextable")
+#   ftObs <- flextable::set_table_properties(ftObs, width=1, layout = "autofit")
+#   ftObs <- flextable::fontsize(ftObs, size = 8)
+#   ftObs <- flextable::fontsize(ftObs, size = 8, part = "header")
+#
+#   ftPO <- results$section2$omopOverview$procedure_occurrence |> OmopSketch::tableClinicalRecords(type = "flextable")
+#   ftPO <- flextable::set_table_properties(ftPO, width=1, layout = "autofit")
+#   ftPO <- flextable::fontsize(ftPO, size = 8)
+#   ftPO <- flextable::fontsize(ftPO, size = 8, part = "header")
+#
+#   ftVO <- results$section2$omopOverview$visit_occurrence |> OmopSketch::tableClinicalRecords(type = "flextable")
+#   ftVO <- flextable::set_table_properties(ftVO, width=1, layout = "autofit")
+#   ftVO <- flextable::fontsize(ftVO, size = 8)
+#   ftVO <- flextable::fontsize(ftVO, size = 8, part = "header")
+#
+#   ftVD <- results$section2$omopOverview$visit_detail |> OmopSketch::tableClinicalRecords(type = "flextable")
+#   ftVD <- flextable::set_table_properties(ftVD, width=1, layout = "autofit")
+#   ftVD <- flextable::fontsize(ftVD, size = 8)
+#   ftVD <- flextable::fontsize(ftVD, size = 8, part = "header")
   
   doc<-doc %>%
     officer::body_add_par(value = "General Delivery Information", style = "heading 1") %>%
@@ -318,53 +318,53 @@ generateResultsDocument<- function(results, connectionDetails, outputFolder, doc
     
     officer::body_add_break() %>%
     
-    officer::body_add_par(value = "The table below shows metadata about the CONDITION OCCURRENCE table") %>%
-    
-    flextable::body_add_flextable(value = ftCO , align = "left") %>%
-    
-    officer::body_add_break() %>%
-    
-    officer::body_add_par(value = "The table below shows metadata about the DEVICE EXPOSURE table") %>%
-    
-    flextable::body_add_flextable(value = ftDevE , align = "left") %>%
-    
-    officer::body_add_break() %>%
-    
-    officer::body_add_par(value = "The table below shows metadata about the DRUG EXPOSURE table") %>%
-    
-    flextable::body_add_flextable(value = ftDruE , align = "left") %>%
-    
-    officer::body_add_break() %>%
-    
-    officer::body_add_par(value = "The table below shows metadata about the MEASUREMENT table") %>%
-    
-    flextable::body_add_flextable(value = ftMeas , align = "left") %>% 
-    
-    officer::body_add_break() %>%
-    
-    officer::body_add_par(value = "The table below shows metadata about the OBSERVATION table") %>%
-    
-    flextable::body_add_flextable(value = ftObs , align = "left") %>% 
-    
-    officer::body_add_break() %>%
-    
-    officer::body_add_par(value = "The table below shows metadata about the PROCEDURE OCCURRENCE table") %>%
-    
-    flextable::body_add_flextable(value = ftPO , align = "left") %>% 
-    
-    officer::body_add_break() %>%
-    
-    officer::body_add_par(value = "The table below shows metadata about the VISIT DETAIL table") %>%
-    
-    flextable::body_add_flextable(value = ftVD , align = "left") %>% 
-    
-    officer::body_add_break() %>%
-    
-    officer::body_add_par(value = "The table below shows metadata about the VISIT OCCURRENCE table") %>%
-    
-    flextable::body_add_flextable(value = ftVO , align = "left") %>%
-    
-    officer::body_add_break()
+#     officer::body_add_par(value = "The table below shows metadata about the CONDITION OCCURRENCE table") %>%
+#
+#     flextable::body_add_flextable(value = ftCO , align = "left") %>%
+#
+#     officer::body_add_break() %>%
+#
+#     officer::body_add_par(value = "The table below shows metadata about the DEVICE EXPOSURE table") %>%
+#
+#     flextable::body_add_flextable(value = ftDevE , align = "left") %>%
+#
+#     officer::body_add_break() %>%
+#
+#     officer::body_add_par(value = "The table below shows metadata about the DRUG EXPOSURE table") %>%
+#
+#     flextable::body_add_flextable(value = ftDruE , align = "left") %>%
+#
+#     officer::body_add_break() %>%
+#
+#     officer::body_add_par(value = "The table below shows metadata about the MEASUREMENT table") %>%
+#
+#     flextable::body_add_flextable(value = ftMeas , align = "left") %>%
+#
+#     officer::body_add_break() %>%
+#
+#     officer::body_add_par(value = "The table below shows metadata about the OBSERVATION table") %>%
+#
+#     flextable::body_add_flextable(value = ftObs , align = "left") %>%
+#
+#     officer::body_add_break() %>%
+#
+#     officer::body_add_par(value = "The table below shows metadata about the PROCEDURE OCCURRENCE table") %>%
+#
+#     flextable::body_add_flextable(value = ftPO , align = "left") %>%
+#
+#     officer::body_add_break() %>%
+#
+#     officer::body_add_par(value = "The table below shows metadata about the VISIT DETAIL table") %>%
+#
+#     flextable::body_add_flextable(value = ftVD , align = "left") %>%
+#
+#     officer::body_add_break() %>%
+#
+#     officer::body_add_par(value = "The table below shows metadata about the VISIT OCCURRENCE table") %>%
+#
+#     flextable::body_add_flextable(value = ftVO , align = "left") %>%
+#
+#     officer::body_add_break()
     
   
   doc<-doc %>%
