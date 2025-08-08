@@ -71,7 +71,7 @@ createReportSections <- function  (connectionDetails,
   # allFiles <- allFiles %>% janitor::clean_names() # eliminate hash in names from Azure
   # dbWriteTable(conn, "public.allFiles", allFiles, overwrite = TRUE)
   if (databaseName != 'emory') {
-    sqlManifest <- glue::glue("SELECT * FROM public.all_metadata_expanded WHERE container = '{containerName}'") 
+    sqlManifest <- glue::glue("SELECT * FROM public.all_metadata_expanded WHERE container = '{containerName}'")
     fileManifest <- DatabaseConnector::querySql(
       connection = connOhdsi,
       sql = sqlManifest,
@@ -79,7 +79,7 @@ createReportSections <- function  (connectionDetails,
     )
     dbWriteTable(conn, "public.allFiles", fileManifest, overwrite = TRUE)
   }
-  sqlGrouped <- glue::glue("SELECT * FROM public.by_site_metadata WHERE container = '{containerName}'") 
+  sqlGrouped <- glue::glue("SELECT * FROM public.by_site_metadata WHERE container = '{containerName}'")
   fileGrouped <- DatabaseConnector::querySql(
     connection = connOhdsi,
     sql = sqlGrouped,
@@ -92,7 +92,8 @@ createReportSections <- function  (connectionDetails,
     UPDATE public.allfiles
     SET person = CASE
            WHEN container = 'columbia' THEN split_part(name, '/', 2)
-           WHEN container = 'duke' THEN split_part(name, '/', 1)
+           WHEN container = 'duke' AND modality = 'WAVE' THEN split_part(name, '/', 1)
+           WHEN container = 'duke' AND modality = 'IMAGE' THEN split_part(name, '/', 2)
            WHEN container = 'emory' THEN split_part(name, '/', 2)
            WHEN container = 'mayo' THEN split_part(split_part(name, '/', 2), '_', 1) -- No person in path
            WHEN container = 'mgh' THEN split_part(name, '/', 1) -- path leads with person for non-OMOP data
@@ -100,14 +101,13 @@ createReportSections <- function  (connectionDetails,
            WHEN container = 'nationwide' THEN split_part(name, '/', 1)
            WHEN container = 'pitts' THEN split_part(name, '/', 3)
            WHEN container = 'seattle' THEN split_part(name, '/', 1)
-           WHEN container = 'tuft' THEN split_part(name, '/', 1)
+           WHEN container = 'tuft' THEN split_part(name, '/', 2)
            WHEN container = 'ucla' THEN replace(split_part(name, '/', 1), 'Person', '')
            WHEN container = 'uflorida' THEN split_part(name, '/', 1)
            WHEN container = 'uva' THEN split_part(name, '/', 2)
            END
-    WHERE name IS NOT NULL;
   ")
-  
+
   executeSql(conn, sqlAllfiles, progressBar = FALSE, reportOverallTime = FALSE)
   
   metadata[['deliveryTime']] <- fileGrouped$MOST_RECENT_UPLOAD[[1]] # get delivery time
