@@ -89,21 +89,12 @@ createReportSections <- function  (connectionDetails,
     ALTER TABLE public.allfiles RENAME COLUMN mode TO modality;
     UPDATE public.allfiles
     SET person = CASE
-           WHEN container = 'columbia' THEN split_part(name, '/', 2)
-           WHEN container = 'duke' AND modality = 'WAVE' THEN split_part(name, '/', 1)
-           WHEN container = 'duke' AND modality = 'IMAGE' THEN split_part(name, '/', 2)
-           WHEN container = 'emory' THEN split_part(name, '/', 2)
-           WHEN container = 'mayo' THEN split_part(split_part(name, '/', 2), '_', 1) -- No person in path
-           WHEN container = 'mgh' THEN split_part(name, '/', 1) -- path leads with person for non-OMOP data
-           WHEN container = 'mit' THEN split_part(name, '/', 2)
-           WHEN container = 'nationwide' THEN split_part(name, '/', 1)
-           WHEN container = 'pitts' THEN split_part(name, '/', 3)
-           WHEN container = 'seattle' THEN split_part(name, '/', 1)
-           WHEN container = 'tuft' THEN split_part(name, '/', 2)
-           WHEN container = 'ucla' THEN replace(split_part(name, '/', 1), 'Person', '')
-           WHEN container = 'uflorida' THEN split_part(name, '/', 1)
-           WHEN container = 'uva' THEN split_part(name, '/', 2)
-           END
+       WHEN name ~* '.*/waveforms?/.*' THEN
+           (regexp_match(name, '([^/]+)/waveforms?/', 'i'))[1]
+       WHEN name ~* '.*/images?/.*' THEN
+           (regexp_match(name, '([^/]+)/images?/', 'i'))[1]
+       ELSE NULL
+       END
   ")
 
   executeSql(conn, sqlAllfiles, progressBar = FALSE, reportOverallTime = FALSE)
