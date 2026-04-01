@@ -88,7 +88,7 @@ createReportSections <- function  (connectionDetails,
 
   executeSql(conn, sqlAllfiles, progressBar = FALSE, reportOverallTime = FALSE)
   
-  metadata[['deliveryTime']] <- fileGrouped$MOST_RECENT_UPLOAD[[1]] # get delivery time
+  metadata[['deliveryTime']] <- fileGrouped$most_recent_upload[[1]] # get delivery time
   metadata[['packetSize']] <- querySql(conn,"select sum(size)/1000000000 FROM public.allfiles;")[[1]] # get delivery packet size in gb
   metadata[['numOfPriorDeliveries']] <- querySql(conn,"select count(*) FROM public.allreleases;")[[1]] # TODO get_prior_deliveries(databaseName)
   metadata[['recentFeedback']] <- c("NO FEEDBACK YET") # TODO get_latest_feedback(databaseName)
