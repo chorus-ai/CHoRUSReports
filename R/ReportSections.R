@@ -195,10 +195,10 @@ createReportSections <- function  (connectionDetails,
   section2[['omopOverview']] <- omopOverview
   
   sqlDataDensity <- glue::glue("
-  select t1.table_name as SERIES_NAME,
-	t1.stratum_1 as X_CALENDAR_MONTH,
-	FLOOR(t1.stratum_1/100) AS X_CALENDAR_YEAR,
-	NULLIF(round(1.0*t1.count_value/denom.count_value,2), 0) as Y_RECORD_COUNT
+  select t1.table_name as series_name,
+	t1.stratum_1 as x_calendar_month,
+	FLOOR(t1.stratum_1/100) AS x_calendar_year,
+	NULLIF(round(1.0*t1.count_value/denom.count_value,2), 0) as y_record_count
   from
   (
   	select 'Visit occurrence' as table_name, CAST(stratum_1 as bigint) stratum_1, count_value from omopcdm.achilles_results where analysis_id = 220 GROUP BY analysis_id, stratum_1, count_value
@@ -226,31 +226,31 @@ createReportSections <- function  (connectionDetails,
   on t1.stratum_1 = denom.stratum_1
   WHERE t1.stratum_1 > 202000
   AND t1.stratum_1 < 202500
-  ORDER BY SERIES_NAME, t1.stratum_1
+  ORDER BY series_name, t1.stratum_1
   ")
   # <- DatabaseConnector::querySql(conn, sqlDataDensity) 
   densityDataSite <- DatabaseConnector::querySql(conn, sqlDataDensity) 
   densityDataMerge <- DatabaseConnector::querySql(connMerge, sqlDataDensity) 
-  densityPlotSite <- ggplot(densityDataSite, aes(x=X_CALENDAR_MONTH, y=Y_RECORD_COUNT, colour = SERIES_NAME), axis.labels = "all_y") + 
+  densityPlotSite <- ggplot(densityDataSite, aes(x=x_calendar_month, y=y_record_count, colour = series_name), axis.labels = "all_y") + 
     geom_point() +
-    facet_grid(cols = vars(X_CALENDAR_YEAR), scales = "free",axis.labels = "all_y") +
+    facet_grid(cols = vars(x_calendar_year), scales = "free",axis.labels = "all_y") +
     theme(axis.text.x=element_blank(),axis.ticks.x=element_blank()) + scale_y_continuous(name="Record Counts Per Person", trans="log10") +
     scale_x_continuous(name="Month of Observation") +
     ggtitle(label=paste(str_to_upper(databaseName),"records per person")) +
     labs(colour = "OMOP Table") 
-  densityPlotMerge <- ggplot(densityDataMerge, aes(x=X_CALENDAR_MONTH, y=Y_RECORD_COUNT, colour = SERIES_NAME), axis.labels = "all_y") + 
+  densityPlotMerge <- ggplot(densityDataMerge, aes(x=x_calendar_month, y=y_record_count, colour = series_name), axis.labels = "all_y") + 
     geom_point() +
-    facet_grid(cols = vars(X_CALENDAR_YEAR), scales = "free",axis.labels = "all_y") +
+    facet_grid(cols = vars(x_calendar_year), scales = "free",axis.labels = "all_y") +
     theme(axis.text.x=element_blank(),axis.ticks.x=element_blank()) + scale_y_continuous(name="Record Counts Per Person", trans="log10") +
     scale_x_continuous(name="Month of Observation") +
     ggtitle(label="MERGE records per person") +
               labs(colour = "OMOP Table") 
   
   if (nrow(densityDataSite) == 0) {
-    densityDummy <- data.frame(SERIES_NAME=c("Death"),X_CALENDAR_MONTH=c(202001), X_CALENDAR_YEAR=c(2020), Y_RECORD_COUNT=c(1))
-    densityPlotDummy <- ggplot(densityDummy, aes(x=X_CALENDAR_MONTH, y=Y_RECORD_COUNT, colour = SERIES_NAME), axis.labels = "all_y") + 
+    densityDummy <- data.frame(series_name=c("Death"),x_calendar_month=c(202001), x_calendar_year=c(2020), y_record_count=c(1))
+    densityPlotDummy <- ggplot(densityDummy, aes(x=x_calendar_month, y=y_record_count, colour = series_name), axis.labels = "all_y") + 
       geom_point() +
-      facet_grid(cols = vars(X_CALENDAR_YEAR), scales = "free",axis.labels = "all_y") +
+      facet_grid(cols = vars(x_calendar_year), scales = "free",axis.labels = "all_y") +
       theme(axis.text.x=element_blank(),axis.ticks.x=element_blank()) + scale_y_continuous(name="Record Counts Per Person", trans="log10") +
       scale_x_continuous(name="Month of Observation") +
       ggtitle(label="No Records in Expected Date Range") +
