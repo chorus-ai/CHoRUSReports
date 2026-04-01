@@ -289,26 +289,26 @@ createReportSections <- function  (connectionDetails,
   piePlot <- DatabaseConnector::querySql(conn, sqlPie)
   piePlotMerge <- DatabaseConnector::querySql(connMerge, sqlPie)
   dataPieSite <- piePlot %>% 
-   arrange(desc(CNT)) %>%
-   mutate(prop = CNT / sum(piePlot$CNT) * 100) %>%
+   arrange(desc(cnt)) %>%
+   mutate(prop = cnt / sum(piePlot$cnt) * 100) %>%
    mutate(posy = cumsum(prop) - prop/2)
   
   dataPieMerge <- piePlotMerge %>% 
-    arrange(desc(CNT)) %>%
-    mutate(prop = CNT / sum(piePlotMerge$CNT) * 100) %>%
+    arrange(desc(cnt)) %>%
+    mutate(prop = cnt / sum(piePlotMerge$cnt) * 100) %>%
     mutate(posy = cumsum(prop) - prop/2)
   
-  sitePiePlot <- ggplot(dataPieSite, aes(x = "", y = CNT, fill = OMOP_TABLE)) +
+  sitePiePlot <- ggplot(dataPieSite, aes(x = "", y = cnt, fill = OMOP_TABLE)) +
     geom_bar(stat = "identity") +
     coord_polar("y")+ 
-    geom_label_repel(aes(label = paste(round(CNT/1000000, digits=3), 'M')), position = position_stack(vjust = 0.5), show.legend = FALSE) +
+    geom_label_repel(aes(label = paste(round(cnt/1000000, digits=3), 'M')), position = position_stack(vjust = 0.5), show.legend = FALSE) +
     ggtitle(label=paste(str_to_upper(databaseName), "rows per domain")) +
     theme_void()
   
-  mergePiePlot <- ggplot(dataPieMerge, aes(x = "", y = CNT, fill = OMOP_TABLE)) +
+  mergePiePlot <- ggplot(dataPieMerge, aes(x = "", y = cnt, fill = OMOP_TABLE)) +
     geom_bar(stat = "identity") +
     coord_polar("y")+ 
-    geom_label_repel(aes(label = paste(round(CNT/1000000, digits=3), 'M')), position = position_stack(vjust = 0.5), show.legend = FALSE) +
+    geom_label_repel(aes(label = paste(round(cnt/1000000, digits=3), 'M')), position = position_stack(vjust = 0.5), show.legend = FALSE) +
     ggtitle(label="MERGE rows per domain") +
     theme_void()
   
