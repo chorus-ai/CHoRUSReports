@@ -47,6 +47,7 @@ createReportSections <- function  (connectionDetails,
   conn <- DatabaseConnector::connect(connectionDetails)
   connMerge <- DatabaseConnector::connect(connectionDetailsMerge)
   connOhdsi <- DatabaseConnector::connect(connectionDetailsOhdsi)
+  containerName <- databaseName
   
   # SECTION 1 - Metadata & Overviews
   print("Generating: SECTION 1 - Metadata & Overviews")
