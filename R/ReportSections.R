@@ -298,14 +298,14 @@ createReportSections <- function  (connectionDetails,
     mutate(prop = cnt / sum(piePlotMerge$cnt) * 100) %>%
     mutate(posy = cumsum(prop) - prop/2)
   
-  sitePiePlot <- ggplot(dataPieSite, aes(x = "", y = cnt, fill = OMOP_TABLE)) +
+  sitePiePlot <- ggplot(dataPieSite, aes(x = "", y = cnt, fill = omop_table)) +
     geom_bar(stat = "identity") +
     coord_polar("y")+ 
     geom_label_repel(aes(label = paste(round(cnt/1000000, digits=3), 'M')), position = position_stack(vjust = 0.5), show.legend = FALSE) +
     ggtitle(label=paste(str_to_upper(databaseName), "rows per domain")) +
     theme_void()
   
-  mergePiePlot <- ggplot(dataPieMerge, aes(x = "", y = cnt, fill = OMOP_TABLE)) +
+  mergePiePlot <- ggplot(dataPieMerge, aes(x = "", y = cnt, fill = omop_table)) +
     geom_bar(stat = "identity") +
     coord_polar("y")+ 
     geom_label_repel(aes(label = paste(round(cnt/1000000, digits=3), 'M')), position = position_stack(vjust = 0.5), show.legend = FALSE) +
