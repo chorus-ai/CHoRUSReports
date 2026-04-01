@@ -48,18 +48,6 @@ createReportSections <- function  (connectionDetails,
   connMerge <- DatabaseConnector::connect(connectionDetailsMerge)
   connOhdsi <- DatabaseConnector::connect(connectionDetailsOhdsi)
   
-  
-  if (databaseName == 'tufts') {
-    containerName <- 'tuft'
-  } else if (databaseName == 'pittsburgh') {
-    containerName <- 'pitts'
-  } else if (databaseName == 'florida') {
-    containerName <- 'uflorida'
-  } else if (databaseName == 'virginia') {
-    containerName <- 'uva'
-  } else {
-    containerName <- databaseName
-  }
   # SECTION 1 - Metadata & Overviews
   print("Generating: SECTION 1 - Metadata & Overviews")
   section1 <- hash()
